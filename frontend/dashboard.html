@@ -1,0 +1,17 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="public/css/style.css">
+</head>
+<body>
+  <h1 id="welcome-message">Cargando panel...</h1>
+  <p>Usuario: <span id="username"></span></p>
+  <p>Email: <span id="email"></span></p>
+  <button id="logout">Cerrar sesión</button>
+
+  <script src="{% static 'js/login.js' %}"></script>
+</body>
+</html>
