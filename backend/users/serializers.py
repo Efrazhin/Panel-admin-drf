@@ -1,7 +1,7 @@
 # user/serializers.py
 
 from rest_framework import serializers
-from .models import CustomUser 
+from .models import *
 from rest_framework.validators import UniqueValidator
 from django.contrib.auth.password_validation import validate_password
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -53,10 +53,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         required=True,
         style={"input_type": "password"}
     )
+    rol = serializers.ChoiceField(choices=CustomUser.ROL_CHOICES, required=True)
 
     class Meta:
         model = CustomUser
-        fields = ('username', 'email', 'password', 'password2')
+        fields = ('username', 'email', 'password', 'password2', 'rol')
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
@@ -64,12 +65,24 @@ class RegisterSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        rol_nombre = validated_data.get('rol')
+
         user = CustomUser.objects.create_user(
             username=validated_data['username'],
-            email=validated_data['email']
+            email=validated_data['email'],
+            rol=rol_nombre  # esto sigue guardando 'admin', 'psicologo', etc.
         )
         user.set_password(validated_data['password'])
         user.save()
+
+        # 🔁 Convertimos 'psicologo' → 'Psicólogo' usando el dict de choices
+        try:
+            rol_nombre_legible = dict(CustomUser.ROL_CHOICES)[rol_nombre]
+            rol = Rol.objects.get(nombre__iexact=rol_nombre_legible)
+            UsuarioRol.objects.create(usuario=user, rol=rol)
+        except Rol.DoesNotExist:
+            raise serializers.ValidationError({"rol": f"Rol no válido: {rol_nombre}"})
+
         return user
 
 
