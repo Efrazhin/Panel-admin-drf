@@ -1,13 +1,13 @@
 from rest_framework import generics, permissions
 from .serializers import RegisterSerializer, ChangePasswordSerializer, UserSerializer, LoginSerializer
-from .models import CustomUser
+from .models import *
 from django.contrib.auth.models import User
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import render
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.http import JsonResponse
@@ -46,6 +46,22 @@ def login_api(request):
         return response
     else:
         return Response({'non_field_errors': 'Correo o contraseña incorrectos.'}, status=401)
+    
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def mis_permisos(request):
+    user = request.user
+    roles = UsuarioRol.objects.filter(usuario=user).select_related('rol')
+    permisos = set()
+    for ur in roles:
+        permisos.update(ur.rol.permisos.values_list('nombre', flat=True))
+
+    return Response({
+        "usuario": user.username,
+        "permisos": list(permisos)
+    })
 
 
 class RegisterView(generics.CreateAPIView):
