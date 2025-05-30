@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <title>Dashboard Admin</title>
+</head>
+<body>
+    <h1>Dashboard</h1>
+    <h1>Bienvenido, {{ usuario.username }}!</h1>
+    <p>Tu(s) rol(es): 
+    {% for rol in roles %}
+        {{ rol }}{% if not forloop.last %}, {% endif %}
+    {% empty %}
+        No tienes roles asignados.
+    {% endfor %}
+    </p>
+
+ 
+    <a href="{% url 'listar_usuarios' %}" class='btn'>Listar Usuarios</a>"
+    
+    <script>
+        // Función para leer cookie por nombre (para obtener access_token)
+        function getCookie(name) {
+            let value = "; " + document.cookie;
+            let parts = value.split("; " + name + "=");
+            if (parts.length === 2) return parts.pop().split(";").shift();
+        }
+
+        // Llamar API para obtener datos del dashboard
+        fetch('/api/dashboard/', {
+            headers: {
+                'Authorization': 'Bearer ' + getCookie('access_token')
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('No autorizado o error en la API');
+            }
+            return response.json();
+        })
+        .then(data => {
+            document.getElementById('user-email').textContent = data.user || 'No definido';
+
+            let accionesList = document.getElementById('acciones-list');
+            accionesList.innerHTML = ''; // Limpiar lista
+
+            if (data.acciones_disponibles && data.acciones_disponibles.length > 0) {
+                data.acciones_disponibles.forEach(accion => {
+                    let li = document.createElement('li');
+                    li.textContent = accion;
+                    accionesList.appendChild(li);
+                });
+            } else {
+                accionesList.innerHTML = '<li>No hay acciones disponibles.</li>';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('user-email').textContent = 'Error al cargar datos';
+            document.getElementById('acciones-list').innerHTML = '<li>Error al cargar acciones</li>';
+        });
+    </script>
+</body>
+</html>

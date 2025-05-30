@@ -1,0 +1,36 @@
+1- Ir a users/signals.py, ahi sigue la indicacion en el archivo
+2- Despues de agregar el nuevo permiso haz py manage.py migrate
+3- Despues vas a la app dashboard/views.py
+4- Ejemplo de como tendria que ser una vista de permiso(API)
+class UsuarioListView(APIView):
+    permission_classes = [IsAuthenticated] <---Obligatorio
+
+    @rol_requerido(roles_permitidos=['Administrador','Secretaria'])<---Aca defines que roles pueden acceder a este permiso
+    def get(self, request):
+    <--Aca toda tu logica de la accion que quieras hacer-->
+        usuarios = CustomUser.objects.all()
+        serializer = UserSerializer(usuarios, many=True)
+        return Response(serializer.data)
+
+5- Despues en tu html puedes llamar asi al boton del permiso : 
+<a href="{% url 'listar_usuarios' %}" class='btn'>Listar Usuarios</a>
+
+Con estos simples pasos ya puedes agregar permisos y su accion.
+
+Si quieres agregar una vista que renderize un html de otro rol o lo que sea que requiera validacion de que el usuario esta logueado es este bloque:
+  #-----------------Este bloque autentica si hay token, no se usa mas @loginrequired 
+    jwt_authenticator = JWTAuthentication()
+    token = request.COOKIES.get("access_token")
+
+    if not token:
+        return HttpResponseRedirect('/login/')  # Redirigir a login si no hay token
+
+    try:
+        validated_token = jwt_authenticator.get_validated_token(token)
+        user = jwt_authenticator.get_user(validated_token)
+        request.user = user  # asignar usuario para la vista
+    except Exception:
+        return HttpResponseRedirect('/login/')
+    #------------------------------------------------------
+
+este bloque tiene que ir si o si porque se usa JWT para validar a travez de cookies
