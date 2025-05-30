@@ -1,5 +1,5 @@
 from rest_framework import generics, permissions
-from .serializers import RegisterSerializer, ChangePasswordSerializer, UserSerializer, LoginSerializer
+from .serializers import *
 from .models import *
 from django.contrib.auth.models import User
 from rest_framework.response import Response
@@ -27,11 +27,12 @@ def login_api(request):
 
     if user is not None:
         refresh = RefreshToken.for_user(user)
-        response = JsonResponse({'message': 'Login exitoso'})
+        access_token = str(refresh.access_token)
 
+        response = JsonResponse({'message': 'Login exitoso'})
         response.set_cookie(
             key='access_token',
-            value=str(refresh.access_token),
+            value=access_token,
             httponly=True,
             secure=False,
             samesite='Lax'
@@ -46,7 +47,14 @@ def login_api(request):
         return response
     else:
         return Response({'non_field_errors': 'Correo o contraseña incorrectos.'}, status=401)
-    
+
+
+@api_view(['POST'])
+def logout_view(request):
+    response = JsonResponse({'message': 'Sesión cerrada correctamente'})
+    response.delete_cookie('access_token')
+    response.delete_cookie('refresh_token')
+    return response
 
 
 @api_view(['GET'])
@@ -65,7 +73,7 @@ def mis_permisos(request):
 
 
 class RegisterView(generics.CreateAPIView):
-    serializer_class = RegisterSerializer  # Ajusta según tu serializer
+    serializer_class = RegisterSerializer  
 
     def get_queryset(self):
         return CustomUser.objects.all()
@@ -79,24 +87,3 @@ class UserDetailView(generics.RetrieveAPIView):
         return self.request.user
 
 
-class ChangePasswordView(generics.UpdateAPIView):
-    serializer_class = ChangePasswordSerializer
-    model = User
-    permission_classes = [IsAuthenticated]
-
-    def get_object(self, queryset=None):
-        return self.request.user
-
-    def update(self, request, *args, **kwargs):
-        user = self.get_object()
-        serializer = self.get_serializer(data=request.data)
-
-        if serializer.is_valid():
-            if not user.check_password(serializer.data.get("old_password")):
-                return Response({"old_password": ["Contraseña actual incorrecta"]}, status=400)
-
-            user.set_password(serializer.data.get("new_password"))
-            user.save()
-            return Response({"detail": "Contraseña actualizada correctamente"})
-
-        return Response(serializer.errors, status=400)

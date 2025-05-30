@@ -1,5 +1,3 @@
-# user/serializers.py
-
 from rest_framework import serializers
 from .models import *
 from rest_framework.validators import UniqueValidator
@@ -32,11 +30,28 @@ class LoginSerializer(serializers.Serializer):
         }
 
 class UserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=True)
+    roles = serializers.PrimaryKeyRelatedField(
+        queryset=Rol.objects.all(), many=True, write_only=True, required=False
+    )
+
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'is_active', 'is_staff', 'date_joined']
+        fields = ['id', 'username', 'email', 'password', 'roles']
 
+    def create(self, validated_data):
+        roles_data = validated_data.pop('roles', [])
+        password = validated_data.pop('password')
 
+        user = CustomUser(**validated_data)
+        user.set_password(password)
+        user.save()
+
+        for rol in roles_data:
+            UsuarioRol.objects.create(usuario=user, rol=rol)
+
+        return user
+    
 class RegisterSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
         required=True,
@@ -53,7 +68,13 @@ class RegisterSerializer(serializers.ModelSerializer):
         required=True,
         style={"input_type": "password"}
     )
-    rol = serializers.ChoiceField(choices=CustomUser.ROL_CHOICES, required=True)
+
+    rol = serializers.SlugRelatedField(
+        slug_field='nombre',
+        queryset=Rol.objects.all(),
+        write_only=True,
+        required=True
+    )
 
     class Meta:
         model = CustomUser
@@ -65,27 +86,23 @@ class RegisterSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        rol_nombre = validated_data.get('rol')
+        validated_data.pop('password2')
+        rol_obj = validated_data.pop('rol')
 
-        user = CustomUser.objects.create_user(
+        user = CustomUser.objects.create(
             username=validated_data['username'],
             email=validated_data['email'],
-            rol=rol_nombre  # esto sigue guardando 'admin', 'psicologo', etc.
         )
         user.set_password(validated_data['password'])
         user.save()
 
-        # 🔁 Convertimos 'psicologo' → 'Psicólogo' usando el dict de choices
-        try:
-            rol_nombre_legible = dict(CustomUser.ROL_CHOICES)[rol_nombre]
-            rol = Rol.objects.get(nombre__iexact=rol_nombre_legible)
-            UsuarioRol.objects.create(usuario=user, rol=rol)
-        except Rol.DoesNotExist:
-            raise serializers.ValidationError({"rol": f"Rol no válido: {rol_nombre}"})
-
+        UsuarioRol.objects.create(usuario=user, rol=rol_obj)
         return user
 
+    def to_representation(self, instance):
+        usuario_rol = UsuarioRol.objects.filter(usuario=instance).first()
+        rol_nombre = usuario_rol.rol.nombre if usuario_rol else None
 
-class ChangePasswordSerializer(serializers.Serializer):
-    old_password = serializers.CharField(required=True)
-    new_password = serializers.CharField(required=True, validators=[validate_password])
+        data = super().to_representation(instance)
+        data['rol'] = rol_nombre
+        return data
