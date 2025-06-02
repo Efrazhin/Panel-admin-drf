@@ -1,0 +1,87 @@
+<!-- templates/roles_form.html -->
+{% extends 'base.html' %}
+
+{% block title %}
+  {% if rol_id %}Editar Rol{% else %}Crear Rol{% endif %}
+{% endblock %}
+
+{% block content %}
+  <div class="container" style="max-width: 500px; margin-top: 20px;">
+    <h1>{% if rol_id %}Editar Rol{% else %}Crear Rol{% endif %}</h1>
+    <form id="rol-form">
+      <div class="form-group">
+        <label for="nombre">Nombre del Rol</label>
+        <input type="text" id="nombre" name="nombre" class="form-control" required>
+        <small id="error-nombre" class="text-danger"></small>
+      </div>
+      <button type="submit" class="btn btn-primary">{% if rol_id %}Actualizar{% else %}Crear{% endif %}</button>
+      <button type="button" class="btn btn-secondary" id="btn-cancelar">Cancelar</button>
+    </form>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const rolId = {{ rol_id|default:'null' }};
+
+  async function cargarRol() {
+    if (!rolId) return;
+    const resp = await fetch(`/users/api/roles/${rolId}/`, {
+      method: 'GET',
+      credentials: 'include'
+    });
+    if (resp.status === 401 || resp.status === 403) {
+      window.location.href = '/dashboard/login-page/';
+      return;
+    }
+    const data = await resp.json();
+    document.getElementById('nombre').value = data.nombre;
+  }
+
+  async function enviarForm(event) {
+    event.preventDefault();
+    const nombre = document.getElementById('nombre').value;
+    document.getElementById('error-nombre').textContent = '';
+
+    let url = '/users/api/roles/';
+    let method = 'POST';
+    if (rolId) {
+      url = `/users/api/roles/${rolId}/`;
+      method = 'PUT';
+    }
+
+    const resp = await fetch(url, {
+      method: method,
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre: nombre })
+    });
+
+    if (resp.status === 201 || resp.status === 200) {
+      // Redirigir a lista de roles
+      window.location.href = '/dashboard/roles/';
+    } else if (resp.status === 400) {
+      const errores = await resp.json();
+      if (errores.nombre) {
+        document.getElementById('error-nombre').textContent = errores.nombre[0];
+      } else {
+        alert('Error al procesar la solicitud.');
+      }
+    } else if (resp.status === 403) {
+      alert('No tienes permiso para realizar esta acción.');
+    } else {
+      alert('Error inesperado.');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (rolId) {
+      cargarRol();
+    }
+    document.getElementById('rol-form').addEventListener('submit', enviarForm);
+    document.getElementById('btn-cancelar').addEventListener('click', () => {
+      window.location.href = '/dashboard/roles/';
+    });
+  });
+</script>
+{% endblock %}

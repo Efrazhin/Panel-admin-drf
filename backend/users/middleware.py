@@ -8,14 +8,14 @@ class JWTAuthenticationFromCookieMiddleware(MiddlewareMixin):
         path = request.path
 
         EXCLUDE_PATHS = [
-            '/api/login/',
-            '/api/register/',
-            '/api/refresh/',
-            '/api/logout/',
-            '/api/login-page/',
+            '/users/api/login/',
+            '/users/api/register/',
+            '/users/api/refresh/',
+            '/users/api/logout/',
+            '/dashboard/login-page/',
         ]
 
-        if path in EXCLUDE_PATHS:
+        if any(path.endswith(exclude) for exclude in EXCLUDE_PATHS):
             return
 
         access_token = request.COOKIES.get('access_token')
@@ -30,7 +30,7 @@ class JWTAuthenticationFromCookieMiddleware(MiddlewareMixin):
                 if refresh_token:
                     try:
                         response = requests.post(
-                            'http://localhost:8000/api/users/refresh/',
+                            'http://localhost:8000/users/api/refresh/',
                             json={'refresh': refresh_token}
                         )
                         if response.status_code == 200:
@@ -39,7 +39,7 @@ class JWTAuthenticationFromCookieMiddleware(MiddlewareMixin):
                             # Inyectar la nueva cookie para el response más tarde
                             request._new_access_token = new_access_token
                     except Exception as e:
-                        pass
+                        print(f"Error renovando token: {str(e)}")  # Para debugging
 
     def process_response(self, request, response):
         if hasattr(request, '_new_access_token'):
@@ -48,6 +48,8 @@ class JWTAuthenticationFromCookieMiddleware(MiddlewareMixin):
                 value=request._new_access_token,
                 httponly=True,
                 secure=False,
-                samesite='Lax'
+                samesite='Lax',
+                path='/',
+                max_age=3600  # 1 hora
             )
         return response

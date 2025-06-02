@@ -1,50 +1,34 @@
+# users/signals.py
+
 from django.db.models.signals import post_migrate
 from django.dispatch import receiver
-from django.apps import apps
-from .models import *
-from django.db.utils import ProgrammingError
+from django.contrib.auth.models import Permission
+from .models import Rol, Usuario
 
 @receiver(post_migrate)
-def create_default_roles(sender, **kwargs):
-    if sender.name != 'users':  # Cambiá 'users' si tu app se llama diferente
-        return
-
-    # Verificamos si ya hay roles creados
-    if Rol.objects.exists():
-        return  # Ya hay roles en la base de datos, no hacemos nada
-
-    # Creamos los roles iniciales si no existen (solo una vez)
-    roles_iniciales = [
-        "Administrador",
-        "Psicólogo",
-        "Secretaria",
-        "Empleado"
-    ]
-
-    for nombre in roles_iniciales:
-        Rol.objects.get_or_create(nombre=nombre)
-
-
-def crear_permisos_signal(sender, **kwargs):
+def crear_rol_administrador(sender, **kwargs):
     """
-    Tras cada migrate, asegura que existan estos permisos.
-    Para añadir nuevos permisos, edita esta lista y vuelve a migrar.
+    Tras las migraciones, asegura:
+      1) Que exista un Rol 'Administrador'.
+      2) Que exista al menos un superusuario.
     """
-    Permiso = apps.get_model('users', 'Permiso')
-    permiso_definidos = [
-        ('listar_usuario',   'Listar Usuario'),
-        ('añadir_usuario',   'Añadir Usuario'),
-        ('editar_usuario',   'Editar Usuario'),
-        ('eliminar_usuario', 'Eliminar Usuario'),
-        # ← Aquí añade futuros permisos: ('codename', 'Nombre Legible')
-        # ej: ('agregar_objeto', 'Agrear Objeto')
-    ]
+    # 1) Crear Rol 'Administrador' si no existe
+    if not Rol.objects.filter(nombre="Administrador").exists():
+        rol_admin = Rol.objects.create(nombre="Administrador")
+        # Asignar todos los permisos automáticos al rol Administrador:
+        rol_admin.permisos.set(Permission.objects.all())
+        rol_admin.save()
 
-    try:
-        existentes = set(Permiso.objects.values_list('codename', flat=True))
-        for codename, nombre in permiso_definidos:
-            if codename not in existentes:
-                Permiso.objects.create(codename=codename, nombre=nombre)
-    except ProgrammingError:
-        # Si la tabla aún no existe (primer migrate), ignora
-        pass
+    # 2) Crear superusuario inicial si no existe ninguno
+    if not Usuario.objects.filter(is_superuser=True).exists():
+        # Utilizamos create_superuser para is_superuser=True e is_staff=True
+        Usuario.objects.create_superuser(
+            username="admin",
+            email="admin@tudominio.com",
+            password="ContrasenaSegura123!"
+        )
+        # Asignar el rol "Administrador" al superusuario
+        admin = Usuario.objects.get(email="admin@tudominio.com")
+        rol_admin = Rol.objects.get(nombre="Administrador")
+        admin.rol = rol_admin
+        admin.save()

@@ -1,41 +1,35 @@
 import os
 from pathlib import Path
-from datetime import timedelta
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent.parent 
+BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-g)#bxajhustn75@9_rp-*w08x&hx452b01tza7(!93)-@yo_2j'
-
-# SECURITY WARNING: don't run with debug turned on in production!
+SECRET_KEY = 'reemplaza-esto-por-tu-propia-llave-secreta'
 DEBUG = True
-APPEND_SLASH = True
+
 ALLOWED_HOSTS = []
 
-
-# Application definition
-
+# --- INSTALLED_APPS ---
 INSTALLED_APPS = [
-    'users.apps.UsersConfig',
-    'dashboard',
     'django.contrib.admin',
     'django.contrib.auth',
-    'django.contrib.contenttypes', 
+    'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework',
-    'rest_framework.authtoken',
     'corsheaders',
-   
+    'rest_framework',
+    'rest_framework_simplejwt',
+
+    'users.apps.UsersConfig',         # Nuestra app de usuarios
+    'dashboard.apps.DashboardConfig', # La app de dashboard (vistas HTML)
 ]
 
+# --- AUTH USER MODEL ---
+AUTH_USER_MODEL = 'users.Usuario'
+
+# --- MIDDLEWARE ---
 MIDDLEWARE = [
-    'users.middleware.JWTAuthenticationFromCookieMiddleware',
+    'corsheaders.middleware.CorsMiddleware',   
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -43,48 +37,24 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
-    
+    'users.middleware.JWTAuthenticationFromCookieMiddleware',  # Agregamos nuestro middleware
 ]
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-]
-
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
-}
-
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-    "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": True,
-    "AUTH_HEADER_TYPES": ("Bearer",),
-    "AUTH_COOKIE": "refresh_token",  # nombre de la cookie
-    "AUTH_COOKIE_HTTP_ONLY": True,
-    "AUTH_COOKIE_SECURE": False,  # True en producción con HTTPS
-    "AUTH_COOKIE_PATH": "/",
-    "AUTH_COOKIE_SAMESITE": "Lax",
-}
-
 
 ROOT_URLCONF = 'config.urls'
 
+# --- TEMPLATES (con context processor 'request') ---
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
-            os.path.join(BASE_DIR, 'frontend'),  
+            BASE_DIR / 'templates',
+            BASE_DIR.parent / 'frontend' / 'templates',  # Agregamos la ruta a los templates del frontend
         ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
-                'users.context_processors.permisos',
-                'django.template.context_processors.request',
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',  # <-- IMPORTANTE
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
@@ -95,20 +65,52 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'paneldrf',
+        'USER': 'root',  
+        'PASSWORD': '',  
+        'HOST': 'localhost',
+        'PORT': '3306',
     }
 }
 
+# --- REST FRAMEWORK ---
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'users.authentication.JWTFromCookieAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'UNAUTHENTICATED_USER': None,  # Importante para que no use AnonymousUser
+}
 
-# Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+# --- JWT SETTINGS ---
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+}
 
+# --- AUTHENTICATION BACKENDS ---
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# --- PASSWORD VALIDATION (puedes ajustarlo) ---
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -124,31 +126,51 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
-
-LANGUAGE_CODE = 'en-us'
-
+# --- INTERNACIONALIZACIÓN ---
+LANGUAGE_CODE = 'es-es'
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
+USE_L10N = True
 USE_TZ = True
 
+# --- ARCHIVOS ESTÁTICOS (CSS, JS, etc.) ---
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
+# --- MEDIA (si necesitas) ---
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
-STATIC_URL = 'static/'
-STATICFILES_DIRS = [BASE_DIR / 'frontend' / 'static']
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-AUTH_USER_MODEL = 'users.CustomUser'
-AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
+# --- CORS CONFIGURATION ---
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://localhost:3000",
 ]
+
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+# Configuración para permitir recursos externos
+CORS_ALLOW_ALL_ORIGINS = True  # Solo para desarrollo
+CORS_ALLOW_EXTERNAL_RESOURCES = True
