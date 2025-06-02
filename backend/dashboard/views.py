@@ -2,13 +2,21 @@
 
 from django.shortcuts import render, HttpResponseRedirect
 from rest_framework_simplejwt.authentication import JWTAuthentication
-
+from django.shortcuts import get_object_or_404
 from users.decorators import permiso_y_roles
 from users.utils import usuario_tiene_permiso
 from users.models import Rol, Usuario
 from users.views import register_view
 from users.authentication import JWTFromCookieAuthentication
 
+
+def login_page(request):
+    """
+    Págaina de login HTML. El formulario envía POST a /users/api/login/.
+    """
+    return render(request, 'login_page.html')
+
+    
 def chequear_autenticacion(request):
     """
     Extrae y valida el JWT desde la cookie 'access_token'.
@@ -74,7 +82,7 @@ def roles_edit_view(request, rol_id):
 
 # ---------------- Usuarios ----------------
 
-@permiso_y_roles('view_user', roles=['Administrador'])
+@permiso_y_roles('view_usuario', roles=['Administrador'])
 def usuarios_list_view(request):
     """
     Lista todos los usuarios en HTML.
@@ -120,6 +128,13 @@ def usuarios_edit_view(request, usuario_id):
 
 
 # ---------------- Otras vistas protegidas ----------------
+@permiso_y_roles('view_permission', roles=['Administrador'])
+def permisos_list_view(request):
+    redir = chequear_autenticacion(request)
+    if redir:
+        return redir
+    return render(request, 'permisos.html')
+
 
 @permiso_y_roles('export_user', roles=['Administrador'], login_url='/dashboard/login-page/', forbidden_url='/dashboard/acceso-denegado/')
 def exportar_usuarios(request):
@@ -145,11 +160,12 @@ def estadisticas(request):
     return render(request, 'estadisticas.html')
 
 
-def login_page(request):
-    """
-    Págaina de login HTML. El formulario envía POST a /users/api/login/.
-    """
-    return render(request, 'login_page.html')
+
+def dashboard(request):
+    redir = chequear_autenticacion(request)
+    if redir:
+        return redir
+    return render(request, 'base.html')
 
 
 def acceso_denegado_view(request):
@@ -184,3 +200,40 @@ def register_form_view(request):
         # Si hay errores, response.data será un dict con mensajes de error
         context['errores'] = response.data
         return render(request, 'register_form.html', context)
+
+
+@permiso_y_roles('change_rol', roles=['Administrador'])
+def rol_permisos_form_view(request, rol_pk):
+    """
+    Muestra el formulario HTML para asignar permisos a un rol.
+    El JS hará fetch a /users/api/permisos/ para listar todos los permisos,
+    y fetch a /users/api/roles/<rol_pk>/ para conocer los permisos actuales.
+    """
+    redir = chequear_autenticacion(request)
+    if redir:
+        return redir
+
+    rol = get_object_or_404(Rol, pk=rol_pk)
+    context = {
+        'rol_id': rol.id,
+        'rol_nombre': rol.nombre
+    }
+    return render(request, 'permisos_rol_form.html', context)
+
+@permiso_y_roles('change_user', roles=['Administrador'])
+def usuario_permisos_form_view(request, user_pk):
+    """
+    Muestra el formulario HTML para asignar permisos adicionales a un usuario.
+    El JS hará fetch a /users/api/permisos/ para listar todos los permisos,
+    y fetch a /users/api/usuarios/<user_pk>/ para extraer permisos_adicionales actuales.
+    """
+    redir = chequear_autenticacion(request)
+    if redir:
+        return redir
+
+    usuario = get_object_or_404(Usuario, pk=user_pk)
+    context = {
+        'usuario_id': usuario.id,
+        'usuario_email': usuario.email
+    }
+    return render(request, 'permisos_usuario_form.html', context)

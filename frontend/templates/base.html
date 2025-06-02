@@ -92,49 +92,65 @@
         <h4>Mi App</h4>
       </div>
       <ul class="nav flex-column">
-        {% load permiso_tags %}
-
-        {# Verifica permiso "view_user" #}
-        {% has_perm 'view_user' as can_view_users %}
-        {% if can_view_users %}
+        {% if 'view_usuario' in user_perms %}
           <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.url_name == 'usuarios_list_view' %}active{% endif %}"
-               href="{% url 'usuarios_list_view' %}">
+            <a
+              class="nav-link {% if request.resolver_match.url_name == 'usuarios_list_view' %}active{% endif %}"
+              href="{% url 'usuarios_list_view' %}"
+            >
               <i class="fas fa-users"></i> Usuarios
             </a>
           </li>
         {% endif %}
-
-        {# Verifica permiso "view_rol" #}
-        {% has_perm 'view_rol' as can_view_roles %}
-        {% if can_view_roles %}
+        {% if 'view_rol' in user_perms %}
+        <li class="nav-item">
+          <a
+            class="nav-link {% if request.resolver_match.url_name == 'roles_list_view' %}active{% endif %}"
+            href="{% url 'roles_list_view' %}"
+          >
+            <i class="fas fa-users"></i> Roles
+          </a>
+        </li>
+        {% endif %}
+        {% if 'view_permission' in user_perms %}
+        <li class="nav-item">
+          <a
+            class="nav-link {% if request.resolver_match.url_name == 'permisos_list_view'%}active{% endif %}"
+            href="{% url 'permisos_list_view'%}"
+          >
+            <i class="fas fa-users"></i> Permisos
+          </a>
+        </li>
+        {% endif %}
+        
+        {#---------- Asignar Permisos a un Rol ----------#}
+        {# Se muestra si el usuario puede editar roles ('change_rol') #}
+        {% if 'change_rol' in user_perms or request.user.rol.nombre == 'Administrador' %}
           <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.url_name == 'roles_list_view' %}active{% endif %}"
-               href="{% url 'roles_list_view' %}">
-              <i class="fas fa-user-tag"></i> Roles
+            <a
+              class="nav-link {% if request.resolver_match.url_name == 'rol_permisos_form_view' %}active{% endif %}"
+              href="{% url 'rol_permisos_form_view' rol_pk=1 %}"
+              title="Reemplaza 1 por el ID del rol deseado"
+            >
+              <i class="fas fa-user-shield"></i> Asignar Permisos a Rol
             </a>
           </li>
         {% endif %}
-
-        {# Verifica permiso "export_user" #}
-        {% has_perm 'export_user' as can_export_users %}
-        {% if can_export_users %}
+      
+        {#---------- Asignar Permisos a un Usuario ----------#}
+        {# Se muestra si el usuario puede editar usuarios ('change_user') #}
+        {% if 'change_usuario' in user_perms or request.user.rol.nombre == 'Administrador' %}
           <li class="nav-item">
-            <a class="nav-link" href="{% url 'exportar_usuarios' %}">
-              <i class="fas fa-file-export"></i> Exportar Usuarios
+            <a
+              class="nav-link {% if request.resolver_match.url_name == 'usuario_permisos_form_view' %}active{% endif %}"
+              href="{% url 'usuario_permisos_form_view' user_pk=6%}"
+              title="Reemplaza 1 por el ID del usuario deseado"
+            >
+              <i class="fas fa-user-cog"></i> Asignar Permisos a Usuario
             </a>
           </li>
         {% endif %}
-
-        {# Verifica permiso "view_stats" #}
-        {% has_perm 'view_stats' as can_view_stats %}
-        {% if can_view_stats %}
-          <li class="nav-item">
-            <a class="nav-link" href="{% url 'estadisticas' %}">
-              <i class="fas fa-chart-bar"></i> Estadísticas
-            </a>
-          </li>
-        {% endif %}
+      
 
         <!-- Agrega más ítems según nuevos permisos -->
       </ul>

@@ -13,14 +13,7 @@ from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 
 from .models import Rol, Usuario
-from .serializers import (
-    RolSerializer,
-    UsuarioSerializer,
-    PermissionSerializer,
-    RolPermisosUpdateSerializer,
-    UsuarioPermisosUpdateSerializer,
-    RegisterSerializer
-)
+from .serializers import *
 from .utils import usuario_tiene_permiso
 from .decorators import permiso_y_roles
 
@@ -62,23 +55,19 @@ class RolViewSet(viewsets.ModelViewSet):
                 return Response({'detail': 'No tienes permiso para esta acción.'}, status=status.HTTP_403_FORBIDDEN)
 
 
+
 class UsuarioViewSet(viewsets.ModelViewSet):
-    """
-    CRUD de Usuario. Cada acción mapea a un permiso automático:
-      list/retrieve  → view_user
-      create         → add_user
-      update/partial → change_user
-      destroy        → delete_user
-    """
     queryset = Usuario.objects.all()
-    serializer_class = UsuarioSerializer
     permission_classes = [IsAuthenticated]
 
-    def initial(self, request, *args, **kwargs):
-        # Llamamos al inicializador base primero
-        super().initial(request, *args, **kwargs)
+    def get_serializer_class(self):
+        # Si la acción es create o update/partial_update, uso el serializer que maneja password
+        if self.action in ['create', 'update', 'partial_update']:
+            return UsuarioCreateUpdateSerializer
+        return UsuarioSerializer
 
-        # Mapeo acción → codename de permiso
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
         action_perm_map = {
             'list': 'view_user',
             'retrieve': 'view_user',
@@ -88,11 +77,13 @@ class UsuarioViewSet(viewsets.ModelViewSet):
             'destroy': 'delete_user',
         }
         perm = action_perm_map.get(self.action)
-
         if perm:
             user = request.user
             if not usuario_tiene_permiso(user, perm) and not (user.rol and user.rol.nombre == 'Administrador'):
+                from rest_framework.response import Response
+                from rest_framework import status
                 return Response({'detail': 'No tienes permiso para esta acción.'}, status=status.HTTP_403_FORBIDDEN)
+
 
 
 # ——————————————
@@ -179,7 +170,7 @@ def login_view(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def logout_view(request):
     """
     POST /users/api/logout/

@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block title %}Permisos Adicionales para Usuario: {{ usuario_email }}{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 800px; margin-top: 20px;">
+  <h1>Asignar Permisos Adicionales a: {{ usuario_email }}</h1>
+
+  <div id="alert-error" class="alert alert-danger" style="display: none;"></div>
+  <div id="alert-success" class="alert alert-success" style="display: none;"></div>
+
+  <form id="usuario-permisos-form">
+    <div class="form-group">
+      <label for="permisos-select">Selecciona Permisos Adicionales</label>
+      <select id="permisos-select" class="form-control" multiple size="10">
+        <!-- Se llenará por JS -->
+      </select>
+      <small id="error-permisos" class="text-danger"></small>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+    <button type="button" class="btn btn-secondary" id="btn-cancelar">Cancelar</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const usuarioId = {{ usuario_id }};
+    const alertError = document.getElementById('alert-error');
+    const alertSuccess = document.getElementById('alert-success');
+    const permisosSelect = document.getElementById('permisos-select');
+
+    // 1) Traer todos los permisos disponibles
+    let todosPermisos = [];
+    try {
+      const respPerms = await fetch('/users/api/permisos/', {
+        method: 'GET',
+        credentials: 'include'
+      });
+      if (respPerms.status === 401 || respPerms.status === 403) {
+        window.location.href = '/dashboard/acceso-denegado/';
+        return;
+      }
+      const dataPerms = await respPerms.json();
+      if (respPerms.status !== 200) {
+        alertError.textContent = dataPerms.detail || 'Error al cargar permisos.';
+        alertError.style.display = 'block';
+        return;
+      }
+      todosPermisos = dataPerms;
+    } catch (error) {
+      alertError.textContent = 'Error de conexión al cargar permisos.';
+      alertError.style.display = 'block';
+      console.error(error);
+      return;
+    }
+
+    // 2) Obtener permisos adicionales actuales del usuario
+    let permisosUsuario = [];
+    try {
+      const respUser = await fetch(`/users/api/usuarios/${usuarioId}/`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+      if (respUser.status === 401 || respUser.status === 403) {
+        window.location.href = '/dashboard/acceso-denegado/';
+        return;
+      }
+      const dataUser = await respUser.json();
+      // dataUser.permisos_adicionales es array de IDs
+      permisosUsuario = dataUser.permisos_adicionales || [];
+    } catch (error) {
+      alertError.textContent = 'Error al cargar permisos del usuario.';
+      alertError.style.display = 'block';
+      console.error(error);
+      return;
+    }
+
+    // 3) Llenar el <select multiple>
+    todosPermisos.forEach(perm => {
+      const option = document.createElement('option');
+      option.value = perm.id;
+      option.textContent = `${perm.codename} — ${perm.name}`;
+      if (permisosUsuario.includes(perm.id)) {
+        option.selected = true;
+      }
+      permisosSelect.appendChild(option);
+    });
+
+    // 4) Manejar envío del formulario
+    document.getElementById('usuario-permisos-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertError.style.display = 'none';
+      alertSuccess.style.display = 'none';
+
+      const selectedIds = Array.from(permisosSelect.selectedOptions).map(opt => parseInt(opt.value));
+
+      // (Opcional) validar no vacío:
+      // if (selectedIds.length === 0) { … }
+
+      try {
+        const respUpd = await fetch(`/users/api/usuarios/${usuarioId}/permisos/`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ permisos_ids: selectedIds })
+        });
+        const dataUpd = await respUpd.json();
+        if (respUpd.status === 200) {
+          alertSuccess.textContent = 'Permisos del usuario actualizados correctamente.';
+          alertSuccess.style.display = 'block';
+        } else if (respUpd.status === 400) {
+          document.getElementById('error-permisos').textContent = dataUpd.permisos_ids 
+            ? dataUpd.permisos_ids[0] 
+            : 'Error al actualizar.';
+        } else if (respUpd.status === 403) {
+          window.location.href = '/dashboard/acceso-denegado/';
+        } else {
+          alertError.textContent = dataUpd.detail || 'Error inesperado al actualizar.';
+          alertError.style.display = 'block';
+        }
+      } catch (error) {
+        alertError.textContent = 'Error de conexión al actualizar permisos.';
+        alertError.style.display = 'block';
+        console.error(error);
+      }
+    });
+
+    // 5) Botón “Cancelar” regresa a lista de usuarios
+    document.getElementById('btn-cancelar').addEventListener('click', () => {
+      window.location.href = '/dashboard/usuarios/';
+    });
+  });
+</script>
+{% endblock %}

@@ -8,6 +8,12 @@ urlpatterns = [
     path('usuarios/form/', usuarios_create_view, name='usuarios_create_view'),
     path('usuarios/form/<int:usuario_id>/', usuarios_edit_view, name='usuarios_edit_view'),
 
+    # Dashboard
+    path('dashboard/', dashboard, name='dashboard'),
+    # Permisos
+    path('permisos/', permisos_list_view, name='permisos_list_view'),
+    path('roles/<int:rol_pk>/permisos/', rol_permisos_form_view, name='rol_permisos_form_view'),
+    path('usuarios/<int:user_pk>/permisos/', usuario_permisos_form_view, name='usuario_permisos_form_view'),
     # Roles
     path('roles/', roles_list_view, name='roles_list_view'),
     path('roles/form/', roles_create_view, name='roles_create_view'),

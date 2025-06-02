@@ -48,12 +48,8 @@
         
         // Esperar un momento para asegurar que las cookies se establezcan
         setTimeout(() => {
-          // Redirigir según el rol del usuario
-          if (data.user && data.user.rol === 'Administrador') {
-            window.location.href = '/dashboard/usuarios/';
-          } else {
-            window.location.href = '/dashboard/';
-          }
+          // Redirigir siempre al dashboard principal
+          window.location.href = '/dashboard/dashboard/';
         }, 100);
       } else {
         // Mostrar error

@@ -57,6 +57,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',  # <-- IMPORTANTE
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'users.context_processors.user_permissions',
             ],
         },
     },
@@ -67,12 +68,8 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'paneldrf',
-        'USER': 'root',  
-        'PASSWORD': '',  
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / "db.sqlite3",
     }
 }
 
