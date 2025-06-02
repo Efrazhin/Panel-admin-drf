@@ -1,3 +1,4 @@
+
 # users/urls.py
 
 from django.urls import path, include
@@ -36,3 +37,4 @@ urlpatterns = [
     # Estadísticas
     path('api/estadisticas/', EstadisticasAPIView.as_view(), name='estadisticas_api'),
 ]
+

@@ -1,3 +1,4 @@
+
 # users/signals.py
 
 from django.db.models.signals import post_migrate
@@ -32,3 +33,7 @@ def crear_rol_administrador(sender, **kwargs):
         rol_admin = Rol.objects.get(nombre="Administrador")
         admin.rol = rol_admin
         admin.save()
+
+            defaults={},
+        )
+

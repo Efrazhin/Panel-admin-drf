@@ -39,6 +39,7 @@ class Usuario(AbstractUser):
     REQUIRED_FIELDS = ['username']
 
     def __str__(self):
+
         return self.email
 
     def get_roles(self):
@@ -57,3 +58,5 @@ class Usuario(AbstractUser):
             perms.update(self.rol.permisos.all())
         perms.update(self.permisos_adicionales.all())
         return perms
+        return f"{self.username} ({self.get_rol_display()})"
+

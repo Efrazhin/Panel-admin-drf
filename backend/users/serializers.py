@@ -1,8 +1,8 @@
 from rest_framework import serializers
+
 from django.contrib.auth.models import Permission
 from .models import Usuario, Rol
-from rest_framework.validators import UniqueValidator
-from django.contrib.auth.password_validation import validate_password
+
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -29,6 +29,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Usuario
+
         fields = ('username', 'email', 'password', 'password2', 'rol')
 
     def validate(self, attrs):
@@ -49,9 +50,19 @@ class RegisterSerializer(serializers.ModelSerializer):
             username=validated_data['username'],
             email=validated_data['email'],
             rol=rol_obj
+
         )
         user.set_password(password)
         user.save()
+
+        # 🔁 Convertimos 'psicologo' → 'Psicólogo' usando el dict de choices
+        try:
+            rol_nombre_legible = dict(CustomUser.ROL_CHOICES)[rol_nombre]
+            rol = Rol.objects.get(nombre__iexact=rol_nombre_legible)
+            UsuarioRol.objects.create(usuario=user, rol=rol)
+        except Rol.DoesNotExist:
+            raise serializers.ValidationError({"rol": f"Rol no válido: {rol_nombre}"})
+
         return user
 
     def to_representation(self, instance):

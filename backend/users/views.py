@@ -1,3 +1,4 @@
+
 # users/views.py
 
 from django.shortcuts import get_object_or_404
@@ -188,6 +189,7 @@ def logout_view(request):
     response.delete_cookie('access_token', path='/')
     response.delete_cookie('refresh_token', path='/')
     return response
+
 
 
 # ——————————————
