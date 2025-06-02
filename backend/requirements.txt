@@ -13,6 +13,7 @@ django-two-factor-auth==1.15.5
 # Base de datos y ORM
 sqlparse==0.5.3
 psycopg2-binary==2.9.9  # Para PostgreSQL (opcional)
+mysqlclient==2.2.4  # Para MySQL
 
 # Utilidades
 python-dotenv==1.0.1

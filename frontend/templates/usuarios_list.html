@@ -1,0 +1,95 @@
+<!-- templates/usuarios_list.html -->
+{% extends 'base.html' %}
+
+{% block title %}Lista de Usuarios{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <h1>Usuarios</h1>
+    <button id="btn-crear-usuario" class="btn btn-primary mb-3">Crear Nuevo Usuario</button>
+    <div id="tabla-usuarios"></div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  async function cargarUsuarios() {
+    const resp = await fetch('/users/api/usuarios/', {
+      method: 'GET',
+      credentials: 'include'
+    });
+    if (resp.status === 401 || resp.status === 403) {
+      window.location.href = '/dashboard/login-page/';
+      return;
+    }
+    const data = await resp.json();
+    const cont = document.getElementById('tabla-usuarios');
+    cont.innerHTML = '';
+
+    const tabla = document.createElement('table');
+    tabla.classList.add('table', 'table-striped');
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+      <tr>
+        <th>ID</th>
+        <th>Username</th>
+        <th>Email</th>
+        <th>Rol</th>
+        <th>Acciones</th>
+      </tr>
+    `;
+    tabla.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    data.forEach(u => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${u.id}</td>
+        <td>${u.username}</td>
+        <td>${u.email}</td>
+        <td>${u.rol}</td>
+        <td>
+          <button class="btn btn-sm btn-info btn-editar" data-id="${u.id}">Editar</button>
+          <button class="btn btn-sm btn-danger btn-eliminar" data-id="${u.id}">Eliminar</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    tabla.appendChild(tbody);
+    cont.appendChild(tabla);
+
+    document.querySelectorAll('.btn-editar').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        window.location.href = `/dashboard/usuarios/form/${id}/`;
+      });
+    });
+
+    document.querySelectorAll('.btn-eliminar').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        if (!confirm('¿Seguro que deseas eliminar este usuario?')) return;
+
+        const respDel = await fetch(`/users/api/usuarios/${id}/`, {
+          method: 'DELETE',
+          credentials: 'include'
+        });
+        if (respDel.status === 204) {
+          cargarUsuarios();
+        } else if (respDel.status === 403) {
+          alert('No tienes permiso para eliminar este usuario.');
+        } else {
+          alert('Error al eliminar.');
+        }
+      });
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    cargarUsuarios();
+    document.getElementById('btn-crear-usuario').addEventListener('click', () => {
+      window.location.href = '/dashboard/usuarios/form/';
+    });
+  });
+</script>
+{% endblock %}

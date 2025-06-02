@@ -1,22 +1,39 @@
+
+# users/signals.py
+
 from django.db.models.signals import post_migrate
 from django.dispatch import receiver
-from django.apps import apps
-from .models import Rol, CustomUser
+from django.contrib.auth.models import Permission
+from .models import Rol, Usuario
 
 @receiver(post_migrate)
-def sync_roles_from_model(sender, **kwargs):
+def crear_rol_administrador(sender, **kwargs):
     """
-    Tras cada migración, sincroniza la tabla Rol con las opciones
-    definidas en CustomUser.ROL_CHOICES.
+    Tras las migraciones, asegura:
+      1) Que exista un Rol 'Administrador'.
+      2) Que exista al menos un superusuario.
     """
-    # Nos aseguramos de ejecutar solo cuando se migre la app de users
-    if sender.name != CustomUser._meta.app_label:
-        return
+    # 1) Crear Rol 'Administrador' si no existe
+    if not Rol.objects.filter(nombre="Administrador").exists():
+        rol_admin = Rol.objects.create(nombre="Administrador")
+        # Asignar todos los permisos automáticos al rol Administrador:
+        rol_admin.permisos.set(Permission.objects.all())
+        rol_admin.save()
 
-    # Iterar sobre ROL_CHOICES y crear o actualizar cada rol en la BD
-    for valor, etiqueta in CustomUser.ROL_CHOICES:
-        # Creamos o actualizamos un objeto Rol con nombre == etiqueta
-        Rol.objects.update_or_create(
-            nombre=etiqueta,
+    # 2) Crear superusuario inicial si no existe ninguno
+    if not Usuario.objects.filter(is_superuser=True).exists():
+        # Utilizamos create_superuser para is_superuser=True e is_staff=True
+        Usuario.objects.create_superuser(
+            username="admin",
+            email="admin@tudominio.com",
+            password="ContrasenaSegura123!"
+        )
+        # Asignar el rol "Administrador" al superusuario
+        admin = Usuario.objects.get(email="admin@tudominio.com")
+        rol_admin = Rol.objects.get(nombre="Administrador")
+        admin.rol = rol_admin
+        admin.save()
+
             defaults={},
         )
+

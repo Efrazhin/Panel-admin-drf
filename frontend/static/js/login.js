@@ -17,7 +17,7 @@ document.getElementById("login-form").addEventListener("submit", async function 
     });
 
     if (response.ok) {
-      window.location.href = "/api/dashboard/panel-data/"; // redirige si es exitoso
+      window.location.href = "/api/dashboard/redirect/";
     } else {
       const data = await response.json();
       errorDiv.textContent = data.non_field_errors || "Error al iniciar sesión";

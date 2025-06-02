@@ -1,0 +1,96 @@
+<!-- templates/roles_list.html -->
+{% extends 'base.html' %}
+
+{% block title %}Lista de Roles{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <h1>Roles</h1>
+    <button id="btn-crear-rol" class="btn btn-primary mb-3">Crear Nuevo Rol</button>
+    <div id="tabla-roles"></div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Una vez cargada la página, obtenemos y mostramos la lista de roles
+  async function cargarRoles() {
+    const resp = await fetch('/users/api/roles/', {
+      method: 'GET',
+      credentials: 'include'
+    });
+    if (resp.status === 401 || resp.status === 403) {
+      window.location.href = '/dashboard/login-page/';
+      return;
+    }
+    const data = await resp.json();
+    const cont = document.getElementById('tabla-roles');
+    cont.innerHTML = '';
+
+    // Creamos una tabla simple
+    const tabla = document.createElement('table');
+    tabla.classList.add('table', 'table-striped');
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+      <tr>
+        <th>ID</th>
+        <th>Nombre</th>
+        <th>Acciones</th>
+      </tr>
+    `;
+    tabla.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    data.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.id}</td>
+        <td>${r.nombre}</td>
+        <td>
+          <button class="btn btn-sm btn-info btn-editar" data-id="${r.id}">Editar</button>
+          <button class="btn btn-sm btn-danger btn-eliminar" data-id="${r.id}">Eliminar</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    tabla.appendChild(tbody);
+    cont.appendChild(tabla);
+
+    // Botones de Editar
+    document.querySelectorAll('.btn-editar').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        window.location.href = `/dashboard/roles/form/${id}/`;
+      });
+    });
+
+    // Botones de Eliminar
+    document.querySelectorAll('.btn-eliminar').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        if (!confirm('¿Seguro que deseas eliminar este rol?')) return;
+
+        const respDel = await fetch(`/users/api/roles/${id}/`, {
+          method: 'DELETE',
+          credentials: 'include'
+        });
+        if (respDel.status === 204) {
+          // Eliminado con éxito, recargar lista
+          cargarRoles();
+        } else if (respDel.status === 403) {
+          alert('No tienes permiso para eliminar este rol.');
+        } else {
+          alert('Error al eliminar.');
+        }
+      });
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    cargarRoles();
+    document.getElementById('btn-crear-rol').addEventListener('click', () => {
+      window.location.href = '/dashboard/roles/form/';
+    });
+  });
+</script>
+{% endblock %}

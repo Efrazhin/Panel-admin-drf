@@ -1,13 +1,40 @@
-from django.urls import path
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+# users/urls.py
+
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from rest_framework_simplejwt.views import TokenRefreshView
 from .views import *
+router = DefaultRouter()
+router.register(r'roles', RolViewSet, basename='rol')
+router.register(r'usuarios', UsuarioViewSet, basename='usuario')
 
 urlpatterns = [
-    path('login-page/', login_page, name='login-page'),  # HTML (GET)
-    path('login/', login_api, name='login'),             # API (POST)
-    path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('register/', RegisterView.as_view(), name='auth_register'),
-    path('change-password/', ChangePasswordView.as_view(), name='auth_change_password'),
-    path('me/', UserDetailView.as_view(), name='user-detail'),
-    path('mis-permisos/', mis_permisos, name='mis_permisos'),
+    # CRUD de roles y usuarios
+    path('api/', include(router.urls)),
+
+    # Autenticación
+    path('api/login/', login_view, name='login'),
+    path('api/logout/', logout_view, name='logout'),
+    path('api/register/', register_view, name='register'),
+    path('api/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
+    # Crear permisos custom
+    path('api/crear-permiso/', crear_permiso_custom, name='crear_permiso_custom'),
+
+    # Listar permisos
+    path('api/permisos/', PermisosListAPIView.as_view(), name='permisos_list'),
+
+    # Actualizar permisos de rol
+    path('api/roles/<int:rol_pk>/permisos/', RolPermisosUpdateAPIView.as_view(), name='roles_update_permisos'),
+
+    # Actualizar permisos adicionales de usuario
+    path('api/usuarios/<int:user_pk>/permisos/', UsuarioPermisosUpdateAPIView.as_view(), name='usuarios_update_permisos'),
+
+    # Exportar usuarios a CSV
+    path('api/usuarios/exportar/', usuarios_exportar_csv, name='usuarios_exportar_csv'),
+
+    # Estadísticas
+    path('api/estadisticas/', EstadisticasAPIView.as_view(), name='estadisticas_api'),
 ]
+

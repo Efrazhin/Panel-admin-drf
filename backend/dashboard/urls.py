@@ -1,7 +1,24 @@
-from django.urls import path
-from .views import DashboardUserInfoAPIView, DashboardDataAPIView
+# dashboard/urls.py
 
+from django.urls import path
+from .views import *
 urlpatterns = [
-    path('panel-data/', DashboardDataAPIView.as_view(), name='dashboard-data'),
-    path('user-info/', DashboardUserInfoAPIView.as_view(), name='dashboard_user_info'),
+    # Usuarios
+    path('usuarios/', usuarios_list_view, name='usuarios_list_view'),
+    path('usuarios/form/', usuarios_create_view, name='usuarios_create_view'),
+    path('usuarios/form/<int:usuario_id>/', usuarios_edit_view, name='usuarios_edit_view'),
+
+    # Roles
+    path('roles/', roles_list_view, name='roles_list_view'),
+    path('roles/form/', roles_create_view, name='roles_create_view'),
+    path('roles/form/<int:rol_id>/', roles_edit_view, name='roles_edit_view'),
+
+    # Otras vistas
+    path('exportar-usuarios/', exportar_usuarios, name='exportar_usuarios'),
+    path('estadisticas/', estadisticas, name='estadisticas'),
+    path('login-page/', login_page, name='login'),
+    path('acceso-denegado/', acceso_denegado_view, name='acceso_denegado'),
+
+    # Registro vía formulario HTML
+    path('register/', register_form_view, name='register_form'),
 ]

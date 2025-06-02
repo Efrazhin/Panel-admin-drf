@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block title %}Estadísticas{% endblock %}
+
+{% block content %}
+  <h1>Estadísticas</h1>
+  <div id="grafico"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  async function cargarEstadisticas() {
+    const resp = await fetch('/users/api/estadisticas/', {
+      method: 'GET',
+      credentials: 'include'
+    });
+    if (resp.status === 401 || resp.status === 403) {
+      window.location.href = '/dashboard/login-page/';
+      return;
+    }
+    const data = await resp.json();
+    const cont = document.getElementById('grafico');
+    cont.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    cargarEstadisticas();
+  });
+</script>
+{% endblock %}

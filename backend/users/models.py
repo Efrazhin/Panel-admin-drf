@@ -1,44 +1,62 @@
-from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.contrib.auth.models import AbstractUser, Permission
 
-class CustomUser(AbstractUser):
-    email = models.EmailField(unique=True)
+class Rol(models.Model):
+    nombre = models.CharField(
+        'Nombre del Rol',
+        max_length=50,
+        unique=True
+    )
+    permisos = models.ManyToManyField(
+        Permission,
+        blank=True,
+        verbose_name='Permisos del Rol',
+        help_text='Permisos asignados a este rol'
+    )
 
-    ROL_CHOICES = [
-        ('admin', 'Administrador'),
-        ('psicologo', 'Psicologo'),
-        ('secretaria', 'Secretaria'),
-    ]
-    rol = models.CharField(max_length=20, choices=ROL_CHOICES)
+    def __str__(self):
+        return self.nombre
+
+class Usuario(AbstractUser):
+    # Reemplazamos username field para loguear por email
+    email = models.EmailField('Correo Electrónico', unique=True)
+    rol = models.ForeignKey(
+        Rol,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name='Rol',
+        help_text='Rol asociado al usuario'
+    )
+    permisos_adicionales = models.ManyToManyField(
+        Permission,
+        blank=True,
+        verbose_name='Permisos Adicionales',
+        help_text='Permisos concedidos puntualmente a este usuario'
+    )
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
 
     def __str__(self):
+
+        return self.email
+
+    def get_roles(self):
+        """
+        Retorna lista con el rol actual (o lista vacía si no hay).
+        """
+        return [self.rol] if self.rol else []
+
+    def get_all_permissions(self):
+        """
+        Devuelve un set con todos los objetos Permission
+        que el usuario tiene, ya sea por su rol o por permisos_adicionales.
+        """
+        perms = set()
+        if self.rol:
+            perms.update(self.rol.permisos.all())
+        perms.update(self.permisos_adicionales.all())
+        return perms
         return f"{self.username} ({self.get_rol_display()})"
 
-# roles y permisos
-class Permiso(models.Model):
-    nombre = models.CharField(max_length=100, unique=True)
-
-    def __str__(self):
-        return self.nombre
-
-
-class Rol(models.Model):
-    nombre = models.CharField(max_length=100, unique=True)
-    permisos = models.ManyToManyField(Permiso, related_name='roles')
-
-    def __str__(self):
-        return self.nombre
-
-
-class UsuarioRol(models.Model):
-    usuario = models.ForeignKey('CustomUser', on_delete=models.CASCADE)
-    rol = models.ForeignKey(Rol, on_delete=models.CASCADE)
-
-    class Meta:
-        unique_together = ('usuario', 'rol')
-
-    def __str__(self):
-        return f'{self.usuario.username} - {self.rol.nombre}'

@@ -1,38 +1,186 @@
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated 
-from rest_framework.exceptions import AuthenticationFailed
+# dashboard/views.py
+
+from django.shortcuts import render, HttpResponseRedirect
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.authentication import get_authorization_header
+
+from users.decorators import permiso_y_roles
+from users.utils import usuario_tiene_permiso
+from users.models import Rol, Usuario
+from users.views import register_view
+from users.authentication import JWTFromCookieAuthentication
+
+def chequear_autenticacion(request):
+    """
+    Extrae y valida el JWT desde la cookie 'access_token'.
+    Si no existe o es inválido, redirige a login-page.
+    """
+    jwt_authenticator = JWTFromCookieAuthentication()
+    
+    try:
+        # Usar authenticate directamente
+        auth_result = jwt_authenticator.authenticate(request)
+        if auth_result is None:
+            print("No se pudo autenticar")  # Para debugging
+            return HttpResponseRedirect('/dashboard/login-page/')
+            
+        user, token = auth_result
+        request.user = user
+        return None
+
+    except Exception as e:
+        print(f"Error de autenticación: {e}")  # Para debugging
+        return HttpResponseRedirect('/dashboard/login-page/')
 
 
+# ---------------- Roles ----------------
 
-class DashboardDataAPIView(APIView):
-    def get(self, request):
-        jwt_authenticator = JWTAuthentication()
+@permiso_y_roles('view_rol', roles=['Administrador'])
+def roles_list_view(request):
+    """
+    Lista todos los roles en HTML.
+    El JS dentro de roles_list.html hará fetch('/users/api/roles/') para obtener datos.
+    """
+    redir = chequear_autenticacion(request)
+    if redir:
+        return redir
+    return render(request, 'roles_list.html')
 
-        # Leer manualmente el token de cookie
-        access_token = request.COOKIES.get("access_token")
 
-        if not access_token:
-            return Response({"detail": "No autorizado"}, status=401)
+@permiso_y_roles('add_rol', roles=['Administrador'])
+def roles_create_view(request):
+    """
+    Muestra el formulario para crear un nuevo rol.
+    El JS en roles_form.html enviará POST a /users/api/roles/.
+    """
+    redir = chequear_autenticacion(request)
+    if redir:
+        return redir
+    context = {'rol_id': None}
+    return render(request, 'roles_form.html', context)
 
-        validated = jwt_authenticator.get_validated_token(access_token)
-        user = jwt_authenticator.get_user(validated)
 
-        return Response({"message": "Acceso correcto", "user": user.email})
+@permiso_y_roles('change_rol', roles=['Administrador'])
+def roles_edit_view(request, rol_id):
+    """
+    Muestra el formulario para editar un rol existente.
+    El JS en roles_form.html enviará PUT a /users/api/roles/<rol_id>/.
+    """
+    redir = chequear_autenticacion(request)
+    if redir:
+        return redir
+    context = {'rol_id': rol_id}
+    return render(request, 'roles_form.html', context)
 
-class DashboardUserInfoAPIView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        user = request.user
-        return Response({
-            "username": user.username,
-            "email": user.email,
-            "is_staff": user.is_staff,
-        })
+# ---------------- Usuarios ----------------
+
+@permiso_y_roles('view_user', roles=['Administrador'])
+def usuarios_list_view(request):
+    """
+    Lista todos los usuarios en HTML.
+    El JS dentro de usuarios_list.html hará fetch('/users/api/usuarios/') para obtener datos.
+    """
+    return render(request, 'usuarios_list.html')
+
+
+@permiso_y_roles('add_user', roles=['Administrador'])
+def usuarios_create_view(request):
+    """
+    Muestra el formulario para crear un nuevo usuario.
+    El JS en usuarios_form.html enviará POST a /users/api/usuarios/.
+    """
+    redir = chequear_autenticacion(request)
+    if redir:
+        return redir
+
+    roles = Rol.objects.all()
+    context = {
+        'usuario_id': None,
+        'roles': roles
+    }
+    return render(request, 'usuarios_form.html', context)
+
+
+@permiso_y_roles('change_user', roles=['Administrador'])
+def usuarios_edit_view(request, usuario_id):
+    """
+    Muestra el formulario para editar un usuario existente.
+    El JS en usuarios_form.html enviará PUT a /users/api/usuarios/<usuario_id>/.
+    """
+    redir = chequear_autenticacion(request)
+    if redir:
+        return redir
+
+    roles = Rol.objects.all()
+    context = {
+        'usuario_id': usuario_id,
+        'roles': roles
+    }
+    return render(request, 'usuarios_form.html', context)
+
+
+# ---------------- Otras vistas protegidas ----------------
+
+@permiso_y_roles('export_user', roles=['Administrador'], login_url='/dashboard/login-page/', forbidden_url='/dashboard/acceso-denegado/')
+def exportar_usuarios(request):
+    """
+    Vista protegida que solo pueden ver quienes tengan permiso 'export_user' o rol 'Administrador'.
+    Renderiza exportar_usuarios.html, donde el JS hará fetch('/users/api/usuarios/exportar/').
+    """
+    redir = chequear_autenticacion(request)
+    if redir:
+        return redir
+    return render(request, 'exportar_usuarios.html')
+
+
+@permiso_y_roles('view_stats', roles=['Administrador'], login_url='/dashboard/login-page/', forbidden_url='/dashboard/acceso-denegado/')
+def estadisticas(request):
+    """
+    Vista protegida que solo pueden ver quienes tengan permiso 'view_stats' o rol 'Administrador'.
+    Renderiza estadisticas.html, donde el JS hará fetch('/users/api/estadisticas/').
+    """
+    redir = chequear_autenticacion(request)
+    if redir:
+        return redir
+    return render(request, 'estadisticas.html')
+
+
+def login_page(request):
+    """
+    Págaina de login HTML. El formulario envía POST a /users/api/login/.
+    """
+    return render(request, 'login_page.html')
+
+
+def acceso_denegado_view(request):
+    """
+    Página simple de 'Acceso Denegado'.
+    """
+    return render(request, 'acceso_denegado.html')
+
+
+def register_form_view(request):
+    """
+    Vista que muestra el formulario de registro HTML.
+    No requiere autenticación ya que es para nuevos usuarios.
+    """
+    roles = Rol.objects.all()
+    context = {
+        'roles': roles,
+        'errores': None
+    }
+
+    if request.method == 'GET':
+        return render(request, 'register_form.html', context)
+
+    # Si es POST, reenviamos los datos al endpoint /users/api/register/
+    request._full_data = request.POST  # hack interno para que DRF lea request.POST como data
+    request._request = request._request  # conservar la request de Django
+    response = register_view(request)
+    if response.status_code == 201:
+        # Registro exitoso; redirigir a login
+        return HttpResponseRedirect('/dashboard/login-page/')
+    else:
+        # Si hay errores, response.data será un dict con mensajes de error
+        context['errores'] = response.data
+        return render(request, 'register_form.html', context)

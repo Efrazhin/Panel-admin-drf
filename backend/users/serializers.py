@@ -1,46 +1,14 @@
-# user/serializers.py
-
 from rest_framework import serializers
-from .models import *
-from rest_framework.validators import UniqueValidator
-from django.contrib.auth.password_validation import validate_password
-from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import authenticate
 
+from django.contrib.auth.models import Permission
+from .models import Usuario, Rol
 
-
-class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
-
-    def validate(self, data):
-        email = data.get('email')
-        password = data.get('password')
-
-        user = authenticate(email=email, password=password)
-        if not user:
-            raise serializers.ValidationError("Credenciales incorrectas.")
-        if not user.is_active:
-            raise serializers.ValidationError("Este usuario está inactivo.")
-
-        refresh = RefreshToken.for_user(user)
-        return {
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
-            'username': user.username,
-            'email': user.email,
-        }
-
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CustomUser
-        fields = ['id', 'username', 'email', 'is_active', 'is_staff', 'date_joined']
 
 
 class RegisterSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
         required=True,
-        validators=[UniqueValidator(queryset=CustomUser.objects.all())]
+        validators=[UniqueValidator(queryset=Usuario.objects.all())]
     )
     password = serializers.CharField(
         write_only=True,
@@ -53,26 +21,38 @@ class RegisterSerializer(serializers.ModelSerializer):
         required=True,
         style={"input_type": "password"}
     )
-    rol = serializers.ChoiceField(choices=CustomUser.ROL_CHOICES, required=True)
+    rol = serializers.SlugRelatedField(
+        slug_field='nombre',
+        queryset=Rol.objects.all(),
+        write_only=True
+    )
 
     class Meta:
-        model = CustomUser
+        model = Usuario
+
         fields = ('username', 'email', 'password', 'password2', 'rol')
 
     def validate(self, attrs):
+        # Verificar que password y password2 coincidan
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError({"password": "Las contraseñas no coinciden."})
         return attrs
 
     def create(self, validated_data):
-        rol_nombre = validated_data.get('rol')
+        # Extraer y eliminar password2 del diccionario
+        password = validated_data.pop('password')
+        validated_data.pop('password2')
+        # Extraer el objeto Rol
+        rol_obj = validated_data.pop('rol')
 
-        user = CustomUser.objects.create_user(
+        # Crear el usuario con username y email, asignar rol
+        user = Usuario.objects.create(
             username=validated_data['username'],
             email=validated_data['email'],
-            rol=rol_nombre  # esto sigue guardando 'admin', 'psicologo', etc.
+            rol=rol_obj
+
         )
-        user.set_password(validated_data['password'])
+        user.set_password(password)
         user.save()
 
         # 🔁 Convertimos 'psicologo' → 'Psicólogo' usando el dict de choices
@@ -85,7 +65,53 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return user
 
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        # Mostrar el nombre legible del rol en la respuesta
+        rep['rol'] = instance.rol.nombre if instance.rol else None
+        return rep
 
-class ChangePasswordSerializer(serializers.Serializer):
-    old_password = serializers.CharField(required=True)
-    new_password = serializers.CharField(required=True, validators=[validate_password])
+
+class PermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Permission
+        fields = ['id', 'codename', 'name', 'content_type']
+
+class RolSerializer(serializers.ModelSerializer):
+    permisos = PermissionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Rol
+        fields = ['id', 'nombre', 'permisos']
+
+class UsuarioSerializer(serializers.ModelSerializer):
+    rol = serializers.PrimaryKeyRelatedField(queryset=Rol.objects.all())
+    permisos_adicionales = serializers.PrimaryKeyRelatedField(
+        queryset=Permission.objects.all(),
+        many=True,
+        required=False
+    )
+
+    class Meta:
+        model = Usuario
+        fields = [
+            'id',
+            'username',
+            'email',
+            'first_name',
+            'last_name',
+            'rol',
+            'permisos_adicionales'
+        ]
+
+class RolPermisosUpdateSerializer(serializers.Serializer):
+    permisos_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=True
+    )
+
+class UsuarioPermisosUpdateSerializer(serializers.Serializer):
+    permisos_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=True
+    )
