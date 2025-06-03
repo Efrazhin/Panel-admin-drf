@@ -2,7 +2,7 @@
 
 from django.shortcuts import render, HttpResponseRedirect
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from users.decorators import permiso_y_roles
 from users.utils import usuario_tiene_permiso
 from users.models import Rol, Usuario
@@ -39,9 +39,7 @@ def chequear_autenticacion(request):
         print(f"Error de autenticación: {e}")  # Para debugging
         return HttpResponseRedirect('/dashboard/login-page/')
 
-
-# ---------------- Roles ----------------
-
+#------------ Roles ----------------
 @permiso_y_roles('view_rol', roles=['Administrador'])
 def roles_list_view(request):
     """
@@ -51,8 +49,9 @@ def roles_list_view(request):
     redir = chequear_autenticacion(request)
     if redir:
         return redir
-    return render(request, 'roles_list.html')
 
+    # No necesitamos pasar user_perms; el context processor ya inyectó 'user_perms' como lista.
+    return render(request, 'roles_list.html', {'roles': Rol.objects.all()})
 
 @permiso_y_roles('add_rol', roles=['Administrador'])
 def roles_create_view(request):
@@ -63,9 +62,11 @@ def roles_create_view(request):
     redir = chequear_autenticacion(request)
     if redir:
         return redir
+
+    # Si quieres usar Django Forms en lugar de JS puro, puedes procesar aquí:
+    # Pero en nuestro caso el propio JS hará POST a la API, así que solo renderizamos el template.
     context = {'rol_id': None}
     return render(request, 'roles_form.html', context)
-
 
 @permiso_y_roles('change_rol', roles=['Administrador'])
 def roles_edit_view(request, rol_id):
@@ -76,8 +77,24 @@ def roles_edit_view(request, rol_id):
     redir = chequear_autenticacion(request)
     if redir:
         return redir
+
     context = {'rol_id': rol_id}
     return render(request, 'roles_form.html', context)
+
+@permiso_y_roles('delete_rol', roles=['Administrador'])
+def roles_delete_view(request, rol_id):
+    """
+    Elimina el rol <rol_id> llamando a la API REST (DELETE).
+    """
+    redir = chequear_autenticacion(request)
+    if redir:
+        return redir
+
+    # El propio JS invoca DELETE; esta vista no se usa para eliminar.
+    # Si quisieras un enlace que apunte aquí, podrías hacerlo:
+    rol = get_object_or_404(Rol, pk=rol_id)
+    rol.delete()
+    return redirect('roles_list_view')
 
 
 # ---------------- Usuarios ----------------

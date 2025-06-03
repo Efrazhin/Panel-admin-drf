@@ -137,20 +137,6 @@
           </li>
         {% endif %}
       
-        {#---------- Asignar Permisos a un Usuario ----------#}
-        {# Se muestra si el usuario puede editar usuarios ('change_user') #}
-        {% if 'change_usuario' in user_perms or request.user.rol.nombre == 'Administrador' %}
-          <li class="nav-item">
-            <a
-              class="nav-link {% if request.resolver_match.url_name == 'usuario_permisos_form_view' %}active{% endif %}"
-              href="{% url 'usuario_permisos_form_view' user_pk=6%}"
-              title="Reemplaza 1 por el ID del usuario deseado"
-            >
-              <i class="fas fa-user-cog"></i> Asignar Permisos a Usuario
-            </a>
-          </li>
-        {% endif %}
-      
 
         <!-- Agrega más ítems según nuevos permisos -->
       </ul>

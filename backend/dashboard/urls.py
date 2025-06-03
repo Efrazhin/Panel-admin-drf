@@ -18,6 +18,7 @@ urlpatterns = [
     path('roles/', roles_list_view, name='roles_list_view'),
     path('roles/form/', roles_create_view, name='roles_create_view'),
     path('roles/form/<int:rol_id>/', roles_edit_view, name='roles_edit_view'),
+    path('roles/delete/<int:rol_id>/', roles_delete_view, name='roles_delete_view'),
 
     # Otras vistas
     path('exportar-usuarios/', exportar_usuarios, name='exportar_usuarios'),

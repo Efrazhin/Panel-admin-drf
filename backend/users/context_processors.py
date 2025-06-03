@@ -10,18 +10,18 @@ def user_permissions(request):
     """
     user = getattr(request, 'user', None)
     if not user or not user.is_authenticated:
-        return {'user_perms': set()}
+        return {'user_perms': []}
 
     # 1) Obtener permisos desde el rol
-    perms_desde_rol = set()
+    perms_desde_rol = []
     if user.rol:
-        perms_desde_rol = set(user.rol.permisos.values_list('codename', flat=True))
+        perms_desde_rol = list(user.rol.permisos.values_list('codename', flat=True))
 
     # 2) Obtener permisos adicionales directos del usuario
-    perms_adicionales = set(user.permisos_adicionales.values_list('codename', flat=True))
+    perms_adicionales = list(user.permisos_adicionales.values_list('codename', flat=True))
 
-    # Unión de ambos
-    todas_permisiones = perms_desde_rol.union(perms_adicionales)
+    # Unión de ambos (usamos set solo para eliminar duplicados, luego volvemos a lista)
+    todas_permisiones = list(set(perms_desde_rol + perms_adicionales))
 
-    # **IMPORTANTE**: devolver un diccionario, no una tupla
     return {'user_perms': todas_permisiones}
+
