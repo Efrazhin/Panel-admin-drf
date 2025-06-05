@@ -5,16 +5,17 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.shortcuts import get_object_or_404, redirect
 from users.decorators import permiso_y_roles
 from users.utils import usuario_tiene_permiso
-from users.models import Rol, Usuario
+from users.models import Rol, Usuario, Permission
 from users.views import register_view
 from users.authentication import JWTFromCookieAuthentication
+from django.contrib.auth.models import Permission
 
 
 def login_page(request):
     """
     Págaina de login HTML. El formulario envía POST a /users/api/login/.
     """
-    return render(request, 'login_page.html')
+    return render(request, 'login/login_page.html')
 
     
 def chequear_autenticacion(request):
@@ -51,7 +52,7 @@ def roles_list_view(request):
         return redir
 
     # No necesitamos pasar user_perms; el context processor ya inyectó 'user_perms' como lista.
-    return render(request, 'roles_list.html', {'roles': Rol.objects.all()})
+    return render(request, 'rol/roles_list.html', {'roles': Rol.objects.all()})
 
 @permiso_y_roles('add_rol', roles=['Administrador'])
 def roles_create_view(request):
@@ -66,7 +67,7 @@ def roles_create_view(request):
     # Si quieres usar Django Forms en lugar de JS puro, puedes procesar aquí:
     # Pero en nuestro caso el propio JS hará POST a la API, así que solo renderizamos el template.
     context = {'rol_id': None}
-    return render(request, 'roles_form.html', context)
+    return render(request, 'rol/roles_form.html', context)
 
 @permiso_y_roles('change_rol', roles=['Administrador'])
 def roles_edit_view(request, rol_id):
@@ -79,7 +80,7 @@ def roles_edit_view(request, rol_id):
         return redir
 
     context = {'rol_id': rol_id}
-    return render(request, 'roles_form.html', context)
+    return render(request, 'rol/roles_form.html', context)
 
 @permiso_y_roles('delete_rol', roles=['Administrador'])
 def roles_delete_view(request, rol_id):
@@ -97,6 +98,26 @@ def roles_delete_view(request, rol_id):
     return redirect('roles_list_view')
 
 
+@permiso_y_roles('view_rol', roles=['Administrador'])
+def roles_permisos_list_view(request, rol_pk):
+    """
+    Muestra en HTML la lista de permisos que tiene un rol,
+    con botones para eliminar cada permiso y un enlace para 'Asignar permisos'.
+    """
+    redir = chequear_autenticacion(request)
+    if redir:
+        return redir
+
+    rol = get_object_or_404(Rol, pk=rol_pk)
+    permisos = rol.permisos.all()
+    context = {
+        'rol': rol,
+        'rol_id': rol.id,
+        'rol_nombre': rol.nombre,
+        'permisos': permisos,
+    }
+    return render(request, 'rol/roles_permisos_list.html', context)
+
 # ---------------- Usuarios ----------------
 
 @permiso_y_roles('view_usuario', roles=['Administrador'])
@@ -105,7 +126,7 @@ def usuarios_list_view(request):
     Lista todos los usuarios en HTML.
     El JS dentro de usuarios_list.html hará fetch('/users/api/usuarios/') para obtener datos.
     """
-    return render(request, 'usuarios_list.html')
+    return render(request, 'usuarios/usuarios_list.html')
 
 
 @permiso_y_roles('add_user', roles=['Administrador'])
@@ -123,10 +144,10 @@ def usuarios_create_view(request):
         'usuario_id': None,
         'roles': roles
     }
-    return render(request, 'usuarios_form.html', context)
+    return render(request, 'usuarios/usuarios_form.html', context)
 
 
-@permiso_y_roles('change_user', roles=['Administrador'])
+@permiso_y_roles('change_usuario', roles=['Administrador'])
 def usuarios_edit_view(request, usuario_id):
     """
     Muestra el formulario para editar un usuario existente.
@@ -141,16 +162,52 @@ def usuarios_edit_view(request, usuario_id):
         'usuario_id': usuario_id,
         'roles': roles
     }
-    return render(request, 'usuarios_form.html', context)
+    return render(request, 'usuarios/usuarios_form.html', context)
 
+@permiso_y_roles('view_usuario', roles=['Administrador', 'Editor'])
+def usuario_permisos_list_view(request, user_pk=None):
+    """
+    Muestra en HTML la lista de permisos que tiene un usuario.
+    Si user_pk es None, muestra los permisos del usuario autenticado.
+    Si user_pk es proporcionado y el usuario tiene permiso change_usuario, muestra los permisos de ese usuario.
+    """
+    redir = chequear_autenticacion(request)
+    if redir:
+        return redir
+
+    # Si no se proporciona user_pk, mostrar permisos del usuario actual
+    if user_pk is None:
+        usuario = request.user
+    else:
+        # Verificar si el usuario actual tiene permiso para ver otros usuarios
+        if not usuario_tiene_permiso(request.user, 'change_usuario') and not (
+            request.user.rol and request.user.rol.nombre == 'Administrador'
+        ):
+            return redirect('acceso_denegado_view')
+        usuario = get_object_or_404(Usuario, pk=user_pk)
+
+    context = {
+        'usuario': usuario,
+        'es_propio': user_pk is None
+    }
+    return render(request, 'usuarios/usuario_permisos_list.html', context)
 
 # ---------------- Otras vistas protegidas ----------------
 @permiso_y_roles('view_permission', roles=['Administrador'])
 def permisos_list_view(request):
+    """
+    Vista que muestra la lista de permisos.
+    Solo accesible por el superusuario.
+    """
     redir = chequear_autenticacion(request)
     if redir:
         return redir
-    return render(request, 'permisos.html')
+    
+    # Verificar si es superusuario
+    if not request.user.is_superuser:
+        return redirect('acceso_denegado')
+        
+    return render(request, 'permisos/permisos_list.html')
 
 
 @permiso_y_roles('export_user', roles=['Administrador'], login_url='/dashboard/login-page/', forbidden_url='/dashboard/acceso-denegado/')
@@ -162,7 +219,7 @@ def exportar_usuarios(request):
     redir = chequear_autenticacion(request)
     if redir:
         return redir
-    return render(request, 'exportar_usuarios.html')
+    return render(request, 'usuarios/exportar_usuarios.html')
 
 
 @permiso_y_roles('view_stats', roles=['Administrador'], login_url='/dashboard/login-page/', forbidden_url='/dashboard/acceso-denegado/')
@@ -174,7 +231,7 @@ def estadisticas(request):
     redir = chequear_autenticacion(request)
     if redir:
         return redir
-    return render(request, 'estadisticas.html')
+    return render(request, 'frontend/templates/estadisticas/estadisticas.html')
 
 
 
@@ -204,7 +261,7 @@ def register_form_view(request):
     }
 
     if request.method == 'GET':
-        return render(request, 'register_form.html', context)
+        return render(request, 'login/register_form.html', context)
 
     # Si es POST, reenviamos los datos al endpoint /users/api/register/
     request._full_data = request.POST  # hack interno para que DRF lea request.POST como data
@@ -216,7 +273,7 @@ def register_form_view(request):
     else:
         # Si hay errores, response.data será un dict con mensajes de error
         context['errores'] = response.data
-        return render(request, 'register_form.html', context)
+        return render(request, 'login/register_form.html', context)
 
 
 @permiso_y_roles('change_rol', roles=['Administrador'])
@@ -231,13 +288,18 @@ def rol_permisos_form_view(request, rol_pk):
         return redir
 
     rol = get_object_or_404(Rol, pk=rol_pk)
+    todos_permisos = Permission.objects.all()
+    permisos_asignados = rol.permisos.values_list('id', flat=True)
+    
     context = {
         'rol_id': rol.id,
-        'rol_nombre': rol.nombre
+        'rol_nombre': rol.nombre,
+        'todos_permisos': todos_permisos,
+        'permisos_asignados': permisos_asignados
     }
-    return render(request, 'permisos_rol_form.html', context)
+    return render(request, 'rol/roles_permisos_list.html', context)
 
-@permiso_y_roles('change_user', roles=['Administrador'])
+@permiso_y_roles('change_usuario', roles=['Administrador'])
 def usuario_permisos_form_view(request, user_pk):
     """
     Muestra el formulario HTML para asignar permisos adicionales a un usuario.
@@ -253,4 +315,4 @@ def usuario_permisos_form_view(request, user_pk):
         'usuario_id': usuario.id,
         'usuario_email': usuario.email
     }
-    return render(request, 'permisos_usuario_form.html', context)
+    return render(request, 'usuarios/permisos_usuario_form.html', context)

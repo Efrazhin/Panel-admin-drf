@@ -1,0 +1,108 @@
+{# frontend/templates/rol/permisos_rol_form.html #}
+{% extends 'base.html' %}
+{% block title %}Asignar Permisos a {{ rol_nombre }}{% endblock %}
+
+{% block content %}
+  <div class="container mt-4" style="max-width:800px;">
+    <h1>Asignar Permisos al Rol: <strong>{{ rol_nombre }}</strong></h1>
+    <div id="alert-error" class="alert alert-danger" style="display:none;"></div>
+    <div id="alert-success" class="alert alert-success" style="display:none;"></div>
+    <form id="rol-permisos-form">
+      <div class="form-group">
+        <label for="permisos-select">Permisos disponibles</label>
+        <select id="permisos-select" class="form-control" multiple size="10"></select>
+        <small id="error-permisos" class="text-danger"></small>
+      </div>
+      <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+      <button type="button" class="btn btn-secondary" id="btn-cancelar">Cancelar</button>
+    </form>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const rolId = {{ rol_id }};
+    const alertError = document.getElementById('alert-error');
+    const alertSuccess = document.getElementById('alert-success');
+    const selectPerms = document.getElementById('permisos-select');
+
+    // 1) Traer todos los permisos
+    let todos = [];
+    try {
+      const r1 = await fetch('/users/api/permisos/', { method:'GET', credentials:'include' });
+      if (r1.status === 401 || r1.status === 403) {
+        window.location.href = '/dashboard/acceso-denegado/';
+        return;
+      }
+      todos = await r1.json();
+    } catch (e) {
+      alertError.textContent = 'Error al cargar permisos.';
+      alertError.style.display = 'block';
+      return;
+    }
+
+    // 2) Permisos actuales del rol
+    let current = [];
+    try {
+      const r2 = await fetch(`/users/api/roles/${rolId}/`, {
+        method:'GET', credentials:'include'
+      });
+      if (r2.status === 401 || r2.status === 403) {
+        window.location.href = '/dashboard/acceso-denegado/';
+        return;
+      }
+      const dataRol = await r2.json();
+      current = dataRol.permisos.map(p => p.id);
+    } catch (e) {
+      alertError.textContent = 'Error al cargar permisos del rol.';
+      alertError.style.display = 'block';
+      return;
+    }
+
+    // 3) Llenar <select> con “todos”, marcando los que ya tiene
+    todos.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.name} — ${p.codename}`;
+      if (current.includes(p.id)) opt.selected = true;
+      selectPerms.appendChild(opt);
+    });
+
+    // 4) Enviar formulario
+    document.getElementById('rol-permisos-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertError.style.display = 'none';
+      alertSuccess.style.display = 'none';
+      const seleccion = Array.from(selectPerms.selectedOptions).map(o => parseInt(o.value));
+      try {
+        const rUpd = await fetch(`/users/api/roles/${rolId}/permisos/`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ permisos_ids: seleccion })
+        });
+        const dataUpd = await rUpd.json();
+        if (rUpd.status === 200) {
+          alertSuccess.textContent = 'Permisos sincronizados.';
+          alertSuccess.style.display = 'block';
+        } else if (rUpd.status === 400) {
+          document.getElementById('error-permisos').textContent = dataUpd.permisos_ids ? dataUpd.permisos_ids[0] : 'Error.';
+        } else if (rUpd.status === 403) {
+          window.location.href = '/dashboard/acceso-denegado/';
+        } else {
+          alertError.textContent = dataUpd.detail || 'Error inesperado.';
+          alertError.style.display = 'block';
+        }
+      } catch (e) {
+        alertError.textContent = 'Error de conexión.';
+        alertError.style.display = 'block';
+      }
+    });
+
+    document.getElementById('btn-cancelar').addEventListener('click', () => {
+      window.location.href = '/dashboard/roles/';
+    });
+  });
+</script>
+{% endblock %}

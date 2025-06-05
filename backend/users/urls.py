@@ -28,6 +28,9 @@ urlpatterns = [
     # Actualizar permisos de rol
     path('api/roles/<int:rol_pk>/permisos/', RolPermisosUpdateAPIView.as_view(), name='roles_update_permisos'),
 
+    # Eliminar un permiso específico del rol
+    path('api/roles/<int:rol_pk>/permisos/<int:perm_pk>/', RolPermisoDeleteAPIView.as_view(), name='roles_delete_permiso'),
+
     # Actualizar permisos adicionales de usuario
     path('api/usuarios/<int:user_pk>/permisos/', UsuarioPermisosUpdateAPIView.as_view(), name='usuarios_update_permisos'),
 

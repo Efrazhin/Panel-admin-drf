@@ -1,9 +1,12 @@
+{# frontend/templates/acceso_denegado.html #}
 {% extends 'base.html' %}
 
 {% block title %}Acceso Denegado{% endblock %}
 
 {% block content %}
-  <h1>Acceso Denegado</h1>
-  <p>No tienes permiso para ver esta página.</p>
-  <a href="{% url 'login' %}" class="btn btn-secondary">Volver a login</a>
+  <div class="container text-center" style="margin-top: 100px;">
+    <h1 class="display-4 text-danger">403</h1>
+    <p class="lead">No tienes permiso para acceder a esta página.</p>
+    <a href="{% url 'dashboard' %}" class="btn btn-primary">Volver al Dashboard</a>
+  </div>
 {% endblock %}

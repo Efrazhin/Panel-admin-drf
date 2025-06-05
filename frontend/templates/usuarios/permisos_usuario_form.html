@@ -1,0 +1,111 @@
+{# frontend/templates/usuarios/permisos_usuario_form.html #}
+{% extends 'base.html' %}
+{% block title %}Asignar Permisos a Usuario{% endblock %}
+
+{% block content %}
+  <div class="container" style="max-width: 800px; margin-top: 20px;">
+    <h1>Permisos de <em>{{ usuario_email }}</em></h1>
+    <div id="alert-error" class="alert alert-danger" style="display: none;"></div>
+    <div id="alert-success" class="alert alert-success" style="display: none;"></div>
+    <form id="usuario-perm-form">
+      <div class="form-group">
+        <label for="permisos-select">Selecciona Permisos</label>
+        <select id="permisos-select" class="form-control" multiple size="10"></select>
+        <small id="error-permisos" class="text-danger"></small>
+      </div>
+      <button type="submit" class="btn btn-primary">Guardar</button>
+      <button type="button" class="btn btn-secondary" id="btn-cancelar">Cancelar</button>
+    </form>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const userId = {{ usuario_id }};
+    const alertError = document.getElementById('alert-error');
+    const alertSuccess = document.getElementById('alert-success');
+    const permisosSelect = document.getElementById('permisos-select');
+
+    // 1) Obtener todos los permisos
+    let todosPerms = [];
+    try {
+      const r1 = await fetch('/users/api/permisos/', {
+        method: 'GET', credentials: 'include'
+      });
+      if (r1.status === 401 || r1.status === 403) {
+        window.location.href = '/dashboard/acceso-denegado/';
+        return;
+      }
+      todosPerms = await r1.json();
+    } catch (e) {
+      alertError.textContent = 'Error al cargar permisos.';
+      alertError.style.display = 'block';
+      return;
+    }
+
+    // 2) Obtener permisos actuales del usuario
+    let permsUser = [];
+    try {
+      const r2 = await fetch(`/users/api/usuarios/${userId}/`, {
+        method: 'GET', credentials: 'include'
+      });
+      if (r2.status === 401 || r2.status === 403) {
+        window.location.href = '/dashboard/acceso-denegado/';
+        return;
+      }
+      const dataU = await r2.json();
+      permsUser = dataU.permisos_adicionales || [];
+    } catch (e) {
+      alertError.textContent = 'Error al cargar permisos del usuario.';
+      alertError.style.display = 'block';
+      return;
+    }
+
+    // 3) Llenar <select> marcando los que ya tiene
+    todosPerms.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.name} — ${p.codename}`;
+      if (permsUser.includes(p.id)) opt.selected = true;
+      permisosSelect.appendChild(opt);
+    });
+
+    // 4) Enviar formulario
+    document.getElementById('usuario-perm-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertError.style.display = 'none';
+      alertSuccess.style.display = 'none';
+      const sel = Array.from(permisosSelect.selectedOptions).map(o => parseInt(o.value));
+      try {
+        const rUpd = await fetch(`/users/api/usuarios/${userId}/permisos/`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ permisos_ids: sel })
+        });
+        const dataUpd = await rUpd.json();
+        if (rUpd.status === 200) {
+          alertSuccess.textContent = 'Permisos actualizados.';
+          alertSuccess.style.display = 'block';
+        } else if (rUpd.status === 400) {
+          document.getElementById('error-permisos').textContent = dataUpd.permisos_ids ? dataUpd.permisos_ids[0] : 'Error.';
+        } else if (rUpd.status === 403) {
+          window.location.href = '/dashboard/acceso-denegado/';
+        } else {
+          alertError.textContent = dataUpd.detail || 'Error inesperado.';
+          alertError.style.display = 'block';
+        }
+      } catch (e) {
+        alertError.textContent = 'Error de conexión.';
+        alertError.style.display = 'block';
+      }
+    });
+
+    // 5) Botón “Cancelar”
+    document.getElementById('btn-cancelar').addEventListener('click', () => {
+      window.location.href = '/dashboard/usuarios/';
+    });
+  });
+</script>
+{% endblock %}

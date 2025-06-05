@@ -1,4 +1,4 @@
-<!-- templates/base.html -->
+{# frontend/templates/base.html #}
 {% load permiso_tags %}
 <!DOCTYPE html>
 <html lang="es">
@@ -13,6 +13,7 @@
     rel="stylesheet"
   >
   {% block extra_css %}{% endblock %}
+
   <style>
     body {
       display: flex;
@@ -92,7 +93,11 @@
         <h4>Mi App</h4>
       </div>
       <ul class="nav flex-column">
-        {% if 'view_usuario' in user_perms %}
+        {% load permiso_tags %}
+
+        {# Usuarios #}
+        {% has_perm 'view_usuario' as can_view_users %}
+        {% if can_view_users %}
           <li class="nav-item">
             <a
               class="nav-link {% if request.resolver_match.url_name == 'usuarios_list_view' %}active{% endif %}"
@@ -102,43 +107,54 @@
             </a>
           </li>
         {% endif %}
-        {% if 'view_rol' in user_perms %}
-        <li class="nav-item">
-          <a
-            class="nav-link {% if request.resolver_match.url_name == 'roles_list_view' %}active{% endif %}"
-            href="{% url 'roles_list_view' %}"
-          >
-            <i class="fas fa-users"></i> Roles
-          </a>
-        </li>
-        {% endif %}
-        {% if 'view_permission' in user_perms %}
-        <li class="nav-item">
-          <a
-            class="nav-link {% if request.resolver_match.url_name == 'permisos_list_view'%}active{% endif %}"
-            href="{% url 'permisos_list_view'%}"
-          >
-            <i class="fas fa-users"></i> Permisos
-          </a>
-        </li>
-        {% endif %}
-        
-        {#---------- Asignar Permisos a un Rol ----------#}
-        {# Se muestra si el usuario puede editar roles ('change_rol') #}
-        {% if 'change_rol' in user_perms or request.user.rol.nombre == 'Administrador' %}
+
+        {# Roles #}
+        {% has_perm 'view_rol' as can_view_roles %}
+        {% if can_view_roles %}
           <li class="nav-item">
             <a
-              class="nav-link {% if request.resolver_match.url_name == 'rol_permisos_form_view' %}active{% endif %}"
-              href="{% url 'rol_permisos_form_view' rol_pk=1 %}"
-              title="Reemplaza 1 por el ID del rol deseado"
+              class="nav-link {% if request.resolver_match.url_name == 'roles_list_view' %}active{% endif %}"
+              href="{% url 'roles_list_view' %}"
             >
-              <i class="fas fa-user-shield"></i> Asignar Permisos a Rol
+              <i class="fas fa-user-tag"></i> Roles
             </a>
           </li>
         {% endif %}
-      
 
-        <!-- Agrega más ítems según nuevos permisos -->
+        {# Permisos #}
+        {% has_perm 'view_permission' as can_view_perms %}
+        {% if can_view_perms %}
+          <li class="nav-item">
+            <a
+              class="nav-link {% if request.resolver_match.url_name == 'permisos_list_view' %}active{% endif %}"
+              href="{% url 'permisos_list_view' %}"
+            >
+              <i class="fas fa-key"></i> Permisos
+            </a>
+          </li>
+        {% endif %}
+
+        {# Estadísticas #}
+        {% has_perm 'view_stats' as can_view_stats %}
+        {% if can_view_stats %}
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'estadisticas' %}active{% endif %}"
+               href="{% url 'estadisticas' %}">
+              <i class="fas fa-chart-bar"></i> Estadísticas
+            </a>
+          </li>
+        {% endif %}
+
+        {# Exportar Usuarios #}
+        {% has_perm 'export_user' as can_export_users %}
+        {% if can_export_users %}
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'exportar_usuarios' %}active{% endif %}"
+               href="{% url 'exportar_usuarios' %}">
+              <i class="fas fa-file-export"></i> Exportar Usuarios
+            </a>
+          </li>
+        {% endif %}
       </ul>
     </nav>
 
@@ -152,12 +168,12 @@
   <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.min.js" crossorigin="anonymous"></script>
-  
+
   <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" 
-        integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ==" 
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+        integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
-  
+
   {% block extra_js %}{% endblock %}
 </body>
 </html>

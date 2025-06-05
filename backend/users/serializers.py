@@ -35,6 +35,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
             'permisos_adicionales'
         ]
 
+
 class RolPermisosUpdateSerializer(serializers.Serializer):
     permisos_ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=True)
 

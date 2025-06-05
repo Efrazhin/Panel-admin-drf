@@ -1,4 +1,3 @@
-
 # users/views.py
 
 from django.shortcuts import get_object_or_404
@@ -11,6 +10,8 @@ from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
+from rest_framework.decorators import action
+from django.db.models import Q
 
 from .models import Rol, Usuario
 from .serializers import *
@@ -54,11 +55,36 @@ class RolViewSet(viewsets.ModelViewSet):
             if not usuario_tiene_permiso(user, perm) and not (user.rol and user.rol.nombre == 'Administrador'):
                 return Response({'detail': 'No tienes permiso para esta acción.'}, status=status.HTTP_403_FORBIDDEN)
 
+    @action(detail=True, methods=['put'])
+    def permisos(self, request, pk=None):
+        """
+        Actualiza los permisos de un rol.
+        PUT /users/api/roles/{pk}/permisos/
+        Body: { "permisos": [1, 2, 3] }  # IDs de los permisos
+        """
+        rol = self.get_object()
+        permisos_ids = request.data.get('permisos', [])
+        
+        try:
+            permisos = Permission.objects.filter(id__in=permisos_ids)
+            rol.permisos.set(permisos)
+            return Response({'detail': 'Permisos actualizados correctamente'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UsuarioViewSet(viewsets.ModelViewSet):
     queryset = Usuario.objects.all()
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Excluye al superusuario y al usuario actual de la lista.
+        """
+        queryset = super().get_queryset()
+        return queryset.exclude(
+            Q(is_superuser=True) | Q(id=self.request.user.id)
+        )
 
     def get_serializer_class(self):
         # Si la acción es create o update/partial_update, uso el serializer que maneja password
@@ -69,12 +95,12 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     def initial(self, request, *args, **kwargs):
         super().initial(request, *args, **kwargs)
         action_perm_map = {
-            'list': 'view_user',
-            'retrieve': 'view_user',
-            'create': 'add_user',
-            'update': 'change_user',
-            'partial_update': 'change_user',
-            'destroy': 'delete_user',
+            'list': 'view_usuario',
+            'retrieve': 'view_usuario',
+            'create': 'add_usuario',
+            'update': 'change_usuario',
+            'partial_update': 'change_usuario',
+            'destroy': 'delete_usuario',
         }
         perm = action_perm_map.get(self.action)
         if perm:
@@ -83,6 +109,31 @@ class UsuarioViewSet(viewsets.ModelViewSet):
                 from rest_framework.response import Response
                 from rest_framework import status
                 return Response({'detail': 'No tienes permiso para esta acción.'}, status=status.HTTP_403_FORBIDDEN)
+
+    @action(detail=True, methods=['get'])
+    def permisos(self, request, pk=None):
+        """
+        Obtiene los permisos de un usuario.
+        GET /users/api/usuarios/{pk}/permisos/
+        """
+        usuario = self.get_object()
+        permisos = usuario.get_all_permissions()
+        
+        # Convertir los permisos a un formato más amigable
+        permisos_list = []
+        for perm in permisos:
+            try:
+                codename = perm.split('.')[-1]
+                perm_obj = Permission.objects.get(codename=codename)
+                permisos_list.append({
+                    'id': perm_obj.id,
+                    'name': perm_obj.name,
+                    'codename': perm_obj.codename
+                })
+            except:
+                continue
+        
+        return Response(permisos_list, status=status.HTTP_200_OK)
 
 
 
@@ -204,12 +255,15 @@ class PermisosListAPIView(APIView):
 #   Actualizar Permisos de Rol (API)
 # ——————————————
 
+
 class RolPermisosUpdateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, rol_pk):
         user = request.user
-        if not usuario_tiene_permiso(user, 'change_rol') and not (user.rol and user.rol.nombre == 'Administrador'):
+        if not usuario_tiene_permiso(user, 'change_rol') and not (
+            user.rol and user.rol.nombre == 'Administrador'
+        ):
             return Response({'detail': 'No autorizado.'}, status=status.HTTP_403_FORBIDDEN)
 
         rol = get_object_or_404(Rol, pk=rol_pk)
@@ -217,17 +271,46 @@ class RolPermisosUpdateAPIView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        permisos_ids = serializer.validated_data['permisos_ids']
-        rol.permisos.clear()
-        for pid in permisos_ids:
+        nuevos_ids = set(serializer.validated_data['permisos_ids'])
+        actuales_ids = set(rol.permisos.values_list('id', flat=True))
+
+        # Quitar los que ya no vienen en la lista
+        quitar = actuales_ids.difference(nuevos_ids)
+        for pid_quitar in quitar:
             try:
-                p = Permission.objects.get(pk=pid)
-                rol.permisos.add(p)
+                p_quitar = Permission.objects.get(pk=pid_quitar)
+                rol.permisos.remove(p_quitar)
             except Permission.DoesNotExist:
-                continue
+                pass
+
+        # Agregar los nuevos
+        agregar = nuevos_ids.difference(actuales_ids)
+        for pid_agregar in agregar:
+            try:
+                p_agregar = Permission.objects.get(pk=pid_agregar)
+                rol.permisos.add(p_agregar)
+            except Permission.DoesNotExist:
+                pass
 
         rol.save()
-        return Response({'detail': 'Permisos del rol actualizados.'}, status=status.HTTP_200_OK)
+        return Response({'detail': 'Permisos del rol sincronizados correctamente.'},
+                        status=status.HTTP_200_OK)
+    
+
+class RolPermisoDeleteAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, rol_pk, perm_pk):
+        user = request.user
+        if not usuario_tiene_permiso(user, 'change_ol') and not (
+            user.rol and user.rol.nombre == 'Administrador'
+        ):
+            return Response({'detail': 'No autorizado.'}, status=status.HTTP_403_FORBIDDEN)
+
+        rol = get_object_or_404(Rol, pk=rol_pk)
+        permiso = get_object_or_404(Permission, pk=perm_pk)
+        rol.permisos.remove(permiso)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 # ——————————————

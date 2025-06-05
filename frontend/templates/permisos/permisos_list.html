@@ -1,0 +1,60 @@
+{# frontend/templates/permisos/permisos_list.html #}
+{% extends 'base.html' %}
+
+{% block title %}Listado de Permisos{% endblock %}
+
+{% block content %}
+  <div class="container mt-4" style="max-width: 800px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1>Permisos</h1>
+    </div>
+    <div id="tabla-permisos"></div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      window.user_perms = {{ user_perms|safe }};
+
+      async function cargarPermisos() {
+        const resp = await fetch('/users/api/permisos/', {
+          method: 'GET', credentials: 'include'
+        });
+        if (resp.status === 401 || resp.status === 403) {
+          window.location.href = '/dashboard/login-page/';
+          return;
+        }
+        const data = await resp.json();
+        const cont = document.getElementById('tabla-permisos');
+        cont.innerHTML = '';
+
+        const tabla = document.createElement('table');
+        tabla.classList.add('table','table-striped');
+        tabla.innerHTML = `
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Permiso</th>
+              <th>Codename</th>
+            </tr>
+          </thead>
+        `;
+        const tbody = document.createElement('tbody');
+        data.forEach(p => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${p.id}</td>
+            <td>${p.name}</td>
+            <td>${p.codename}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        tabla.appendChild(tbody);
+        cont.appendChild(tabla);
+      }
+
+      cargarPermisos();
+    });
+  </script>
+{% endblock %}

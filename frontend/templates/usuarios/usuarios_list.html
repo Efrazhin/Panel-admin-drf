@@ -1,0 +1,119 @@
+{# frontend/templates/usuarios/usuarios_list.html #}
+{% extends 'base.html' %}
+
+{% block title %}Listado de Usuarios{% endblock %}
+
+{% block content %}
+  <div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1>Usuarios</h1>
+      {% if 'add_usuario' in user_perms %}
+        <button id="btn-crear-usuario" class="btn btn-success">Crear Usuario</button>
+      {% endif %}
+    </div>
+    <div id="tabla-usuarios">
+      <!-- La tabla se generará por JS -->
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      window.user_perms = {{ user_perms|safe }};
+
+      async function cargarUsuarios() {
+        const resp = await fetch('/users/api/usuarios/', {
+          method: 'GET',
+          credentials: 'include'
+        });
+        if (resp.status === 401 || resp.status === 403) {
+          window.location.href = '/dashboard/login-page/';
+          return;
+        }
+        const data = await resp.json();
+        const cont = document.getElementById('tabla-usuarios');
+        cont.innerHTML = '';
+
+        const tabla = document.createElement('table');
+        tabla.classList.add('table','table-striped');
+        tabla.innerHTML = `
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Usuario</th>
+              <th>Email</th>
+              <th>Rol</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+        `;
+        const tbody = document.createElement('tbody');
+        data.forEach(u => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${u.id}</td>
+            <td>${u.username}</td>
+            <td>${u.email}</td>
+            <td>${u.rol_nombre || ''}</td>
+            <td>
+              ${ window.user_perms.includes('change_usuario')
+                 ? `<button class="btn btn-sm btn-info btn-editar" data-id="${u.id}">Editar</button>`
+                 : ''
+              }
+              ${ window.user_perms.includes('delete_usuario')
+                 ? `<button class="btn btn-sm btn-danger btn-eliminar" data-id="${u.id}">Eliminar</button>`
+                 : ''
+              }
+              ${ window.user_perms.includes('change_usuario')
+                 ? `<button class="btn btn-sm btn-warning btn-permisos" data-id="${u.id}">Permisos</button>`
+                 : ''
+              }
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+        tabla.appendChild(tbody);
+        cont.appendChild(tabla);
+
+        // Botones de Editar
+        document.querySelectorAll('.btn-editar').forEach(btn => {
+          btn.addEventListener('click', () => {
+            window.location.href = `/dashboard/usuarios/form/${btn.dataset.id}/`;
+          });
+        });
+        // Botones de Eliminar
+        document.querySelectorAll('.btn-eliminar').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('¿Eliminar usuario?')) return;
+            const respDel = await fetch(`/users/api/usuarios/${btn.dataset.id}/`, {
+              method: 'DELETE',
+              credentials: 'include'
+            });
+            if (respDel.status === 204) {
+              cargarUsuarios();
+            } else if (respDel.status === 403) {
+              alert('Sin permiso para eliminar.');
+            } else {
+              alert('Error al eliminar.');
+            }
+          });
+        });
+        // Botones de "Permisos"
+        document.querySelectorAll('.btn-permisos').forEach(btn => {
+          btn.addEventListener('click', () => {
+            window.location.href = `/dashboard/usuarios/${btn.dataset.id}/permisos/`;
+          });
+        });
+      }
+
+      cargarUsuarios();
+      const btnCrear = document.getElementById('btn-crear-usuario');
+      if (btnCrear) {
+        btnCrear.addEventListener('click', () => {
+          window.location.href = '/dashboard/usuarios/form/';
+        });
+      }
+    });
+  </script>
+{% endblock %}

@@ -1,0 +1,89 @@
+{# frontend/templates/usuarios/usuario_permisos_list.html #}
+{% extends 'base.html' %}
+
+{% block title %}
+  {% if es_propio %}
+    Mis Permisos
+  {% else %}
+    Permisos de {{ usuario.username }}
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  <div class="container mt-4" style="max-width: 800px;">
+    <h2>
+      {% if es_propio %}
+        Mis Permisos
+      {% else %}
+        Permisos de {{ usuario.username }}
+      {% endif %}
+    </h2>
+    <div class="mt-3 mb-3">
+      {% if not es_propio %}
+        <a href="{% url 'usuarios_list_view' %}" class="btn btn-secondary">Volver a Usuarios</a>
+      {% endif %}
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">Permisos Asignados</h5>
+      </div>
+      <div class="card-body">
+        <div id="lista-permisos">
+          <!-- Los permisos se cargarán aquí -->
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const listaPermisos = document.getElementById('lista-permisos');
+    const userId = {{ usuario.id }};
+
+    try {
+      // Obtener los permisos del usuario
+      const resp = await fetch(`/users/api/usuarios/${userId}/permisos/`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (resp.ok) {
+        const permisos = await resp.json();
+        
+        if (permisos.length === 0) {
+          listaPermisos.innerHTML = '<p class="text-center">No hay permisos asignados.</p>';
+          return;
+        }
+
+        const ul = document.createElement('ul');
+        ul.className = 'list-group';
+        
+        permisos.forEach(perm => {
+          const li = document.createElement('li');
+          li.className = 'list-group-item';
+          li.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <strong>${perm.name}</strong>
+                <small class="text-muted">(${perm.codename})</small>
+              </div>
+            </div>
+          `;
+          ul.appendChild(li);
+        });
+
+        listaPermisos.appendChild(ul);
+      } else if (resp.status === 403) {
+        listaPermisos.innerHTML = '<p class="text-center text-danger">No tienes permiso para ver los permisos de este usuario.</p>';
+      } else {
+        listaPermisos.innerHTML = '<p class="text-center text-danger">Error al cargar los permisos.</p>';
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      listaPermisos.innerHTML = '<p class="text-center text-danger">Error al cargar los permisos.</p>';
+    }
+  });
+</script>
+{% endblock %}

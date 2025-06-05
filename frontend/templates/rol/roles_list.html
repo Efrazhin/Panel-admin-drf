@@ -1,0 +1,115 @@
+{# frontend/templates/rol/roles_list.html #}
+{% extends 'base.html' %}
+
+{% block title %}Listado de Roles{% endblock %}
+
+{% block content %}
+  <div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1>Roles</h1>
+      {% if 'add_rol' in user_perms %}
+        <button id="btn-crear-rol" class="btn btn-success">Crear Rol</button>
+      {% endif %}
+    </div>
+    <div id="tabla-roles">
+      <!-- La tabla se generará por JS -->
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      window.user_perms = {{ user_perms|safe }};
+
+      async function cargarRoles() {
+        const resp = await fetch('/users/api/roles/', {
+          method: 'GET',
+          credentials: 'include'
+        });
+        if (resp.status === 401 || resp.status === 403) {
+          window.location.href = '/dashboard/login-page/';
+          return;
+        }
+        const data = await resp.json();
+        const cont = document.getElementById('tabla-roles');
+        cont.innerHTML = '';
+
+        const tabla = document.createElement('table');
+        tabla.classList.add('table','table-striped');
+        tabla.innerHTML = `
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nombre</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+        `;
+        const tbody = document.createElement('tbody');
+        data.forEach(r => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${r.id}</td>
+            <td>${r.nombre}</td>
+            <td>
+              ${ window.user_perms.includes('change_rol')
+                 ? `<button class="btn btn-sm btn-info btn-editar" data-id="${r.id}">Editar</button>`
+                 : ''
+              }
+              ${ window.user_perms.includes('delete_rol')
+                 ? `<button class="btn btn-sm btn-danger btn-eliminar" data-id="${r.id}">Eliminar</button>`
+                 : ''
+              }
+              ${ window.user_perms.includes('change_rol')
+                 ? `<button class="btn btn-sm btn-warning btn-asignar" data-id="${r.id}">Permisos</button>`
+                 : ''
+              }
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+        tabla.appendChild(tbody);
+        cont.appendChild(tabla);
+
+        // Botones de Editar
+        document.querySelectorAll('.btn-editar').forEach(btn => {
+          btn.addEventListener('click', () => {
+            window.location.href = `/dashboard/roles/form/${btn.dataset.id}/`;
+          });
+        });
+        // Botones de Eliminar
+        document.querySelectorAll('.btn-eliminar').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('¿Eliminar rol?')) return;
+            const respDel = await fetch(`/users/api/roles/${btn.dataset.id}/`, {
+              method: 'DELETE',
+              credentials: 'include'
+            });
+            if (respDel.status === 204) {
+              cargarRoles();
+            } else if (respDel.status === 403) {
+              alert('Sin permiso para eliminar.');
+            } else {
+              alert('Error al eliminar.');
+            }
+          });
+        });
+        // Botones de "Permisos"
+        document.querySelectorAll('.btn-asignar').forEach(btn => {
+          btn.addEventListener('click', () => {
+            window.location.href = `/dashboard/roles/${btn.dataset.id}/permisos/`;
+          });
+        });
+      }
+
+      cargarRoles();
+      const btnCrear = document.getElementById('btn-crear-rol');
+      if (btnCrear) {
+        btnCrear.addEventListener('click', () => {
+          window.location.href = '/dashboard/roles/form/';
+        });
+      }
+    });
+  </script>
+{% endblock %}

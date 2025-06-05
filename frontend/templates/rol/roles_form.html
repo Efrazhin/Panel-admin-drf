@@ -1,4 +1,4 @@
-<!-- templates/roles_form.html -->
+{# frontend/templates/rol/roles_form.html #}
 {% extends 'base.html' %}
 
 {% block title %}
@@ -6,15 +6,18 @@
 {% endblock %}
 
 {% block content %}
-  <div class="container" style="max-width: 500px; margin-top: 20px;">
+  <div class="container" style="max-width: 400px; margin-top: 20px;">
     <h1>{% if rol_id %}Editar Rol{% else %}Crear Rol{% endif %}</h1>
     <form id="rol-form">
+      {% csrf_token %}
       <div class="form-group">
         <label for="nombre">Nombre del Rol</label>
         <input type="text" id="nombre" name="nombre" class="form-control" required>
         <small id="error-nombre" class="text-danger"></small>
       </div>
-      <button type="submit" class="btn btn-primary">{% if rol_id %}Actualizar{% else %}Crear{% endif %}</button>
+      <button type="submit" class="btn btn-primary">
+        {% if rol_id %}Actualizar{% else %}Crear{% endif %}
+      </button>
       <button type="button" class="btn btn-secondary" id="btn-cancelar">Cancelar</button>
     </form>
   </div>
@@ -40,8 +43,9 @@
 
   async function enviarForm(event) {
     event.preventDefault();
-    const nombre = document.getElementById('nombre').value;
     document.getElementById('error-nombre').textContent = '';
+
+    const payload = { nombre: document.getElementById('nombre').value };
 
     let url = '/users/api/roles/';
     let method = 'POST';
@@ -54,21 +58,18 @@
       method: method,
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre: nombre })
+      body: JSON.stringify(payload)
     });
 
     if (resp.status === 201 || resp.status === 200) {
-      // Redirigir a lista de roles
       window.location.href = '/dashboard/roles/';
     } else if (resp.status === 400) {
       const errores = await resp.json();
       if (errores.nombre) {
         document.getElementById('error-nombre').textContent = errores.nombre[0];
-      } else {
-        alert('Error al procesar la solicitud.');
       }
     } else if (resp.status === 403) {
-      alert('No tienes permiso para realizar esta acción.');
+      alert('No tienes permiso para esta acción.');
     } else {
       alert('Error inesperado.');
     }

@@ -13,7 +13,14 @@ class Rol(models.Model):
         verbose_name='Permisos del Rol',
         help_text='Permisos asignados a este rol'
     )
-
+    class Meta:
+        default_permissions = ()
+        permissions = [
+            ('view_rol', 'Ver lista de roles'),
+            ('add_rol', 'Crear nuevo rol'),
+            ('change_rol', 'Modificar rol existente'),
+            ('delete_rol', 'Eliminar rol'),
+        ]
     def __str__(self):
         return self.nombre
 
@@ -37,6 +44,15 @@ class Usuario(AbstractUser):
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
+    
+    class Meta:
+        default_permissions = ()
+        permissions = [
+            ('view_usuario', 'Ver lista de usuarios'),
+            ('add_usuario', 'Crear usuario'),
+            ('change_usuario', 'Modificar usuario'),
+            ('delete_usuario', 'Eliminar usuario'),
+        ]
 
     def __str__(self):
 
